@@ -2003,3 +2003,71 @@
 }
 
 /* === END MAESTRO P0.6B.3 — GOVERNED APPLY UI === */
+
+
+/* === MAESTRO P0.6C.1 — GOVERNED RELOCATION UI === */
+
+.changeListDestination {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+.changeRelocationPaths {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 1px;
+  border-bottom: 1px solid var(--line);
+  background: var(--line);
+}
+
+.changeRelocationPaths > div:not(.changeRelocationArrow) {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 11px;
+  background: var(--panel);
+}
+
+.changeRelocationPaths span {
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.changeRelocationPaths code {
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 11px;
+}
+
+.changeRelocationArrow {
+  display: grid;
+  place-items: center;
+  background: var(--panel2);
+}
+
+.changeRelocationArrow span {
+  font-size: 15px;
+  color: var(--muted);
+}
+
+@media (max-width: 760px) {
+  .changeRelocationPaths {
+    grid-template-columns: 1fr;
+  }
+
+  .changeRelocationArrow {
+    min-height: 28px;
+  }
+
+  .changeRelocationArrow span {
+    transform: rotate(90deg);
+  }
+}
+
+/* === END MAESTRO P0.6C.1 — GOVERNED RELOCATION UI === */

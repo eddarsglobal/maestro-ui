@@ -330,9 +330,23 @@ export default function App() {
   ) => {
     if (changeBusy) return;
 
+    const targetChange =
+      changeProposals.find((item) => item.id === changeId) ?? null;
+
+    const targetIsRelocation =
+      targetChange?.operation === "rename" ||
+      targetChange?.operation === "move";
+
     if (
       action === "apply" &&
-      !window.confirm(tch(language, "applyConfirm"))
+      !window.confirm(
+        tch(
+          language,
+          targetIsRelocation
+            ? "applyRelocationConfirm"
+            : "applyConfirm",
+        ),
+      )
     ) {
       return;
     }
@@ -695,6 +709,10 @@ export default function App() {
     changeProposals.find((item) => item.id === selectedChangeId) ??
     changeProposals[0] ??
     null;
+
+  const selectedIsRelocation =
+    selectedChange?.operation === "rename" ||
+    selectedChange?.operation === "move";
 
   const runtimeLabel =
     gatewayStatus === "online"
@@ -1326,6 +1344,14 @@ export default function App() {
                       <small>
                         {proposal.operation.toUpperCase()} · {proposal.id}
                       </small>
+
+                      {(proposal.operation === "rename" ||
+                        proposal.operation === "move") &&
+                        proposal.destination_path && (
+                          <small className="changeListDestination">
+                            → {proposal.destination_path}
+                          </small>
+                        )}
                     </button>
                   ))
                 ) : (
@@ -1344,7 +1370,7 @@ export default function App() {
                     </div>
                     <div>
                       <span>{tch(language, "operation")}</span>
-                      <b>{selectedChange.operation}</b>
+                      <b>{selectedChange.operation.toUpperCase()}</b>
                     </div>
                     <div>
                       <span>{tch(language, "effect")}</span>
@@ -1355,6 +1381,25 @@ export default function App() {
                       <b>{tch(language, changeStatusKey(selectedChange.status))}</b>
                     </div>
                   </div>
+
+                  {selectedIsRelocation &&
+                    selectedChange.destination_path && (
+                      <div className="changeRelocationPaths">
+                        <div>
+                          <span>{tch(language, "sourcePath")}</span>
+                          <code>{selectedChange.path}</code>
+                        </div>
+
+                        <div className="changeRelocationArrow">
+                          <span aria-hidden="true">→</span>
+                        </div>
+
+                        <div>
+                          <span>{tch(language, "destinationPath")}</span>
+                          <code>{selectedChange.destination_path}</code>
+                        </div>
+                      </div>
+                    )}
 
                   <div className="changeSha">
                     <div>
@@ -1436,6 +1481,13 @@ export default function App() {
                     selectedChange.status === "ROLLBACK_FAILED" ||
                     selectedChange.status === "INTEGRITY_ERROR") && (
                     <div className="changeExecutionEvidence">
+                      {selectedChange.applied_path && (
+                        <div>
+                          <span>{tch(language, "appliedPath")}</span>
+                          <code>{selectedChange.applied_path}</code>
+                        </div>
+                      )}
+
                       {selectedChange.applied_sha256 && (
                         <div>
                           <span>{tch(language, "appliedSha")}</span>

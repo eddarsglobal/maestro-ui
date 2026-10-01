@@ -167,9 +167,10 @@ export type ChangeProposal = {
   protocol: string;
   workspace_id: string;
   workspace_label: string;
-  operation: "write" | "edit" | "patch";
-  effect: "create" | "edit";
+  operation: "write" | "edit" | "patch" | "rename" | "move";
+  effect: "create" | "edit" | "rename" | "move";
   path: string;
+  destination_path?: string;
   before_exists: boolean;
   before_sha256: string | null;
   after_sha256: string;
@@ -194,6 +195,11 @@ export type ChangeProposal = {
 
   applied_at?: string;
   applied_sha256?: string;
+  applied_path?: string;
+
+  before_inode?: number;
+  before_device?: number;
+  destination_before_exists?: boolean;
 
   apply_error?: string;
   rollback_error?: string;
