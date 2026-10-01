@@ -1,0 +1,78 @@
+export type GatewayStatus = "offline" | "checking" | "online";
+
+export type GatewayHealth = {
+  status?: string;
+  version?: string;
+  core?: string;
+  councils?: number;
+  gateway_version?: string;
+  mission_protocol?: string;
+};
+
+export type LocalProvider = "ollama" | "lmstudio" | "llamacpp" | "custom";
+
+export type LocalRuntimeSettings = {
+  gatewayUrl: string;
+  provider: LocalProvider;
+  providerUrl: string;
+};
+
+export type GatewaySession = {
+  session_token: string;
+  scope: string;
+  mission_protocol: string;
+};
+
+export type ModelsResponse = {
+  provider: string;
+  status: string;
+  models: string[];
+};
+
+export type MissionRequest = {
+  prompt: string;
+  model?: string | null;
+  max_tokens?: number;
+  language?: string | null;
+};
+
+export type MissionResponse = {
+  ok: boolean;
+  protocol: string;
+  mode: string;
+  task_id: string;
+  state: string;
+  resource_id: string;
+  output: string;
+  metrics: Record<string, unknown>;
+  evidence_id: string;
+  ay_verdict: string;
+  tx_authorized: boolean;
+  tx_committed: boolean;
+  verification_scope: string;
+  semantic_truth_verified: boolean;
+  stages: string[];
+  error: string | null;
+};
+
+export const RUNTIME_STORAGE_KEY = "maestro-local-runtime";
+
+export const DEFAULT_LOCAL_RUNTIME_SETTINGS: LocalRuntimeSettings = {
+  gatewayUrl: "http://127.0.0.1:8787",
+  provider: "ollama",
+  providerUrl: "http://127.0.0.1:11434",
+};
+
+export function loadLocalRuntimeSettings(): LocalRuntimeSettings {
+  try {
+    const raw = localStorage.getItem(RUNTIME_STORAGE_KEY);
+    if (!raw) return DEFAULT_LOCAL_RUNTIME_SETTINGS;
+
+    return {
+      ...DEFAULT_LOCAL_RUNTIME_SETTINGS,
+      ...JSON.parse(raw),
+    };
+  } catch {
+    return DEFAULT_LOCAL_RUNTIME_SETTINGS;
+  }
+}

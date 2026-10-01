@@ -1,0 +1,183 @@
+import { useEffect, useState } from "react";
+import { Check, ChevronRight, PlugZap, ShieldCheck } from "lucide-react";
+import { checkGateway } from "../../services/gateway/client";
+import {
+  RUNTIME_STORAGE_KEY,
+  loadLocalRuntimeSettings,
+  type GatewayStatus,
+  type LocalProvider,
+  type LocalRuntimeSettings,
+} from "../../types/gateway";
+
+const providers: Array<{
+  id: LocalProvider;
+  name: string;
+  description: string;
+  defaultUrl: string;
+}> = [
+  {
+    id: "ollama",
+    name: "Ollama",
+    description: "Local model discovery and inference.",
+    defaultUrl: "http://127.0.0.1:11434",
+  },
+  {
+    id: "lmstudio",
+    name: "LM Studio",
+    description: "Local OpenAI-compatible inference server.",
+    defaultUrl: "http://127.0.0.1:1234",
+  },
+  {
+    id: "llamacpp",
+    name: "llama.cpp",
+    description: "Lightweight local inference endpoint.",
+    defaultUrl: "http://127.0.0.1:8080",
+  },
+  {
+    id: "custom",
+    name: "Custom local endpoint",
+    description: "OpenAI-compatible endpoint on your machine.",
+    defaultUrl: "http://127.0.0.1:8000",
+  },
+];
+
+export default function LocalRuntimePanel() {
+  const [settings, setSettings] =
+    useState<LocalRuntimeSettings>(loadLocalRuntimeSettings);
+  const [status, setStatus] = useState<GatewayStatus>("offline");
+  const [detail, setDetail] = useState("No MAESTRO Local Gateway detected");
+
+  useEffect(() => {
+    localStorage.setItem(RUNTIME_STORAGE_KEY, JSON.stringify(settings));
+    window.dispatchEvent(
+      new CustomEvent("maestro-runtime-settings", {
+        detail: settings,
+      }),
+    );
+  }, [settings]);
+
+  const testConnection = async () => {
+    setStatus("checking");
+    setDetail("Checking local gateway…");
+
+    try {
+      const health = await checkGateway(settings.gatewayUrl);
+      setStatus("online");
+
+      const parts = [
+        health.version ? `Core v${health.version}` : null,
+        health.councils ? `${health.councils} Councils` : null,
+        health.mission_protocol || null,
+      ].filter(Boolean);
+
+      setDetail(parts.length ? parts.join(" · ") : "Gateway reachable");
+    } catch {
+      setStatus("offline");
+      setDetail("No MAESTRO Local Gateway detected");
+    }
+  };
+
+  const selectProvider = (provider: LocalProvider) => {
+    const selected = providers.find((item) => item.id === provider)!;
+
+    setSettings({
+      ...settings,
+      provider,
+      providerUrl: selected.defaultUrl,
+    });
+  };
+
+  return (
+    <div className="runtimeSettings">
+      <div className="settingsBlock">
+        <div className="settingsTitle">
+          <span><PlugZap size={18} /></span>
+          <div>
+            <b>MAESTRO Local Gateway</b>
+            <small>Secure browser-to-Core bridge</small>
+          </div>
+        </div>
+
+        <label className="runtimeField">
+          <span>Gateway URL</span>
+          <input
+            value={settings.gatewayUrl}
+            onChange={(event) =>
+              setSettings({
+                ...settings,
+                gatewayUrl: event.target.value,
+              })
+            }
+            spellCheck={false}
+          />
+        </label>
+
+        <div className="gatewayTest">
+          <button onClick={testConnection} disabled={status === "checking"}>
+            {status === "checking" ? "Checking…" : "Test connection"}
+          </button>
+
+          <span className={`gatewayResult ${status}`}>
+            <i />
+            {detail}
+          </span>
+        </div>
+      </div>
+
+      <div className="settingsBlock">
+        <div className="settingsTitle">
+          <span><ShieldCheck size={18} /></span>
+          <div>
+            <b>Local intelligence</b>
+            <small>Preferred inference runtime</small>
+          </div>
+        </div>
+
+        <div className="providerGrid">
+          {providers.map((provider) => (
+            <button
+              key={provider.id}
+              className={
+                "providerCard " +
+                (settings.provider === provider.id ? "selected" : "")
+              }
+              onClick={() => selectProvider(provider.id)}
+            >
+              <span className="providerTop">
+                <b>{provider.name}</b>
+                {settings.provider === provider.id ? (
+                  <Check size={15} />
+                ) : (
+                  <ChevronRight size={15} />
+                )}
+              </span>
+              <small>{provider.description}</small>
+            </button>
+          ))}
+        </div>
+
+        <label className="runtimeField">
+          <span>Provider URL</span>
+          <input
+            value={settings.providerUrl}
+            onChange={(event) =>
+              setSettings({
+                ...settings,
+                providerUrl: event.target.value,
+              })
+            }
+            spellCheck={false}
+          />
+        </label>
+
+        <div className="localBoundary">
+          <ShieldCheck size={15} />
+          <span>
+            Provider configuration stays local. Official mission execution
+            travels through MAESTRO Gateway and MAESTRO Core.
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}

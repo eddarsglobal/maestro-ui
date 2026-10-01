@@ -1,0 +1,1 @@
+# MAESTRO P0.4D — Deterministic Response Language\n\nP0.4D adds an explicit response-language field to the UI → Gateway mission contract. The browser locale selects the initial supported language, and the user can override it in the composer.\n\nSupported codes: fr, en, de, ar, pt, es, hr, it.\n
