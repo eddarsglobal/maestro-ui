@@ -8,13 +8,14 @@ import {
 import "./styles/maestro.css";
 import LocalRuntimePanel from "./features/settings/LocalRuntimePanel";
 import {
-  checkGateway, chooseWorkspace, deleteConversation, getConversation,
-  listConversations, listGatewayModels, listWorkspaces, openGatewaySession,
-  runGatewayMission, updateConversation,
+  applyChangeProposal, approveChangeProposal, checkGateway, chooseWorkspace, deleteConversation,
+  getConversation, listChangeProposals, listConversations, listGatewayModels,
+  listWorkspaces, openGatewaySession, rejectChangeProposal, runGatewayMission,
+  updateConversation,
 } from "./services/gateway/client";
 import {
   loadLocalRuntimeSettings,
-  type ConversationRecord, type ConversationSummary,
+  type ChangeProposal, type ConversationRecord, type ConversationSummary,
   type GatewayHealth, type GatewayStatus, type LocalRuntimeSettings,
   type MissionResponse, type WorkspaceRecord,
 } from "./types/gateway";
@@ -24,6 +25,7 @@ import {
 } from "./i18n";
 import { tc } from "./i18n-conversations";
 import { tw } from "./i18n-workspace";
+import { tch } from "./i18n-changes";
 
 const CORE = "https://github.com/eddarsglobal/maestro";
 
@@ -95,6 +97,39 @@ function recordToChat(record: ConversationRecord): ChatItem[] {
   return rows;
 }
 
+function diffLineClass(line: string): string {
+  if (line.startsWith("+++") || line.startsWith("---")) return "meta";
+  if (line.startsWith("+")) return "add";
+  if (line.startsWith("-")) return "remove";
+  if (line.startsWith("@@")) return "hunk";
+  return "context";
+}
+
+function changeStatusKey(status: ChangeProposal["status"]): string {
+  switch (status) {
+    case "AWAITING_APPROVAL":
+      return "awaiting";
+    case "APPROVED":
+      return "approved";
+    case "REJECTED":
+      return "rejected";
+    case "STALE":
+      return "stale";
+    case "APPLIED":
+      return "applied";
+    case "APPLY_FAILED":
+      return "applyFailed";
+    case "ROLLED_BACK":
+      return "rolledBack";
+    case "ROLLBACK_FAILED":
+      return "rollbackFailed";
+    case "INTEGRITY_ERROR":
+      return "integrityError";
+    default:
+      return "stale";
+  }
+}
+
 function conversationText(record: ConversationRecord): string {
   return record.messages
     .filter((item) => item.role === "user" || item.role === "assistant")
@@ -139,6 +174,12 @@ export default function App() {
     useState<string | null>(null);
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
+  const [changeProposals, setChangeProposals] =
+    useState<ChangeProposal[]>([]);
+  const [changesOpen, setChangesOpen] = useState(false);
+  const [selectedChangeId, setSelectedChangeId] =
+    useState<string | null>(null);
+  const [changeBusy, setChangeBusy] = useState(false);
 
   const sessionTokenRef = useRef<string | null>(null);
 
@@ -239,6 +280,110 @@ export default function App() {
     }
   };
 
+  const refreshChanges = async (
+    workspaceId: string | null = activeWorkspaceId,
+  ): Promise<ChangeProposal[]> => {
+    if (gatewayStatus === "offline" || !workspaceId) {
+      setChangeProposals([]);
+      return [];
+    }
+
+    try {
+      const rows = await withFreshSession((token) =>
+        listChangeProposals(
+          runtimeSettings.gatewayUrl,
+          token,
+          workspaceId,
+        ),
+      );
+      setChangeProposals(rows);
+
+      if (
+        selectedChangeId &&
+        !rows.some((item) => item.id === selectedChangeId)
+      ) {
+        setSelectedChangeId(rows[0]?.id ?? null);
+      }
+
+      return rows;
+    } catch {
+      setChangeProposals([]);
+      return [];
+    }
+  };
+
+  const openChanges = async () => {
+    if (!activeWorkspaceId || gatewayStatus !== "online") return;
+    setChangesOpen(true);
+
+    const rows = await refreshChanges(activeWorkspaceId);
+    setSelectedChangeId((current) =>
+      current && rows.some((item) => item.id === current)
+        ? current
+        : rows[0]?.id ?? null,
+    );
+  };
+
+  const actOnChange = async (
+    action: "approve" | "reject" | "apply",
+    changeId: string,
+  ) => {
+    if (changeBusy) return;
+
+    if (
+      action === "apply" &&
+      !window.confirm(tch(language, "applyConfirm"))
+    ) {
+      return;
+    }
+
+    setChangeBusy(true);
+
+    try {
+      const updated = await withFreshSession((token) => {
+        if (action === "approve") {
+          return approveChangeProposal(
+            runtimeSettings.gatewayUrl,
+            token,
+            changeId,
+          );
+        }
+
+        if (action === "reject") {
+          return rejectChangeProposal(
+            runtimeSettings.gatewayUrl,
+            token,
+            changeId,
+          );
+        }
+
+        return applyChangeProposal(
+          runtimeSettings.gatewayUrl,
+          token,
+          changeId,
+        );
+      });
+
+      setChangeProposals((rows) =>
+        rows.map((item) => item.id === updated.id ? updated : item),
+      );
+      setSelectedChangeId(updated.id);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : tch(language, "actionFailed");
+      window.alert(message);
+
+      const rows = await refreshChanges(activeWorkspaceId);
+      setSelectedChangeId((current) =>
+        current && rows.some((item) => item.id === current)
+          ? current
+          : rows[0]?.id ?? null,
+      );
+    } finally {
+      setChangeBusy(false);
+    }
+  };
+
   const chooseLocalWorkspace = async (kind: "file" | "folder") => {
     if (workspaceBusy || gatewayStatus !== "online") return;
 
@@ -321,6 +466,20 @@ export default function App() {
     if (gatewayStatus !== "online") return;
     void refreshWorkspaces();
   }, [gatewayStatus, runtimeSettings.gatewayUrl]);
+
+  useEffect(() => {
+    if (gatewayStatus !== "online" || !activeWorkspaceId) {
+      setChangeProposals([]);
+      setSelectedChangeId(null);
+      return;
+    }
+
+    void refreshChanges(activeWorkspaceId);
+  }, [
+    activeWorkspaceId,
+    gatewayStatus,
+    runtimeSettings.gatewayUrl,
+  ]);
 
   useEffect(() => {
     if (!searchOpen) return;
@@ -527,6 +686,15 @@ export default function App() {
   const recent = conversations.filter((item) => !item.pinned);
   const activeWorkspace =
     workspaces.find((item) => item.id === activeWorkspaceId) ?? null;
+  const pendingChanges = changeProposals.filter(
+    (item) =>
+      item.status === "AWAITING_APPROVAL" ||
+      item.status === "APPROVED",
+  ).length;
+  const selectedChange =
+    changeProposals.find((item) => item.id === selectedChangeId) ??
+    changeProposals[0] ??
+    null;
 
   const runtimeLabel =
     gatewayStatus === "online"
@@ -637,21 +805,21 @@ export default function App() {
           <MessageSquarePlus size={17}/> {t(language, "newChat")}
         </button>
 
-        <div className="conversationList">
-          {pinned.length > 0 && (
-            <div className="conversationSection">
-              <span className="label">{tc(language, "pinned")}</span>
-              {pinned.map(renderConversation)}
-            </div>
-          )}
+        <div className="sidebarConversations">
+          <div className="conversationList">
+            {pinned.length > 0 && (
+              <div className="conversationSection">
+                <span className="label">{tc(language, "pinned")}</span>
+                {pinned.map(renderConversation)}
+              </div>
+            )}
 
-          <div className="conversationSection">
-            <span className="label">{tc(language, "recents")}</span>
-            {recent.map(renderConversation)}
+            <div className="conversationSection">
+              <span className="label">{tc(language, "recents")}</span>
+              {recent.map(renderConversation)}
+            </div>
           </div>
         </div>
-
-        <div className="grow"/>
 
         <nav>
           <button className={view==="councils"?"active":""} onClick={() => go("councils")}>
@@ -840,159 +1008,178 @@ export default function App() {
               </div>
             )}
 
-            <div className="composerDock">
+                        <div className="composerDock">
               <div className="composerWrap">
+                <div className="workspaceToolbar">
+                                  <div className="workspacePickerWrap">
+                                    <button
+                                      className={
+                                        "workspaceTrigger " +
+                                        (activeWorkspace ? "active" : "")
+                                      }
+                                      onClick={() => setWorkspaceMenuOpen((value) => !value)}
+                                      disabled={running || gatewayStatus !== "online"}
+                                      title={tw(language, "workspace")}
+                                    >
+                                      <FolderOpen size={15}/>
+                                      <span>
+                                        {activeWorkspace
+                                          ? activeWorkspace.label
+                                          : tw(language, "workspace")}
+                                      </span>
+                                      <ChevronDown size={13}/>
+                                    </button>
+
+                                    {workspaceMenuOpen && (
+                                      <div className="workspaceMenu">
+                                        <button
+                                          onClick={() => void chooseLocalWorkspace("folder")}
+                                          disabled={workspaceBusy}
+                                        >
+                                          <FolderOpen size={15}/>
+                                          <span>{tw(language, "openFolder")}</span>
+                                        </button>
+                                        <button
+                                          onClick={() => void chooseLocalWorkspace("file")}
+                                          disabled={workspaceBusy}
+                                        >
+                                          <FileText size={15}/>
+                                          <span>{tw(language, "openFile")}</span>
+                                        </button>
+
+                                        {workspaces.length > 0 && (
+                                          <>
+                                            <div className="workspaceMenuDivider"/>
+                                            <span className="workspaceMenuLabel">
+                                              {tw(language, "authorized")}
+                                            </span>
+                                            {workspaces.map((workspace) => (
+                                              <button
+                                                key={workspace.id}
+                                                className={
+                                                  workspace.id === activeWorkspaceId
+                                                    ? "selected"
+                                                    : ""
+                                                }
+                                                onClick={() => {
+                                                  setActiveWorkspaceId(workspace.id);
+                                                  setWorkspaceMenuOpen(false);
+                                                }}
+                                                disabled={!workspace.exists}
+                                                title={workspace.path}
+                                              >
+                                                {workspace.kind === "file"
+                                                  ? <FileText size={15}/>
+                                                  : <FolderOpen size={15}/>}
+                                                <span>
+                                                  <b>{workspace.label}</b>
+                                                  <small>
+                                                    {workspace.exists
+                                                      ? tw(language, "readOnly")
+                                                      : tw(language, "missing")}
+                                                  </small>
+                                                </span>
+                                              </button>
+                                            ))}
+                                          </>
+                                        )}
+
+                                        {activeWorkspace && (
+                                          <>
+                                            <div className="workspaceMenuDivider"/>
+                                            <button
+                                              onClick={() => {
+                                                setActiveWorkspaceId(null);
+                                                setWorkspaceMenuOpen(false);
+                                              }}
+                                            >
+                                              <X size={15}/>
+                                              <span>{tw(language, "detach")}</span>
+                                            </button>
+                                          </>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {activeWorkspace && (
+                                    <div className="workspaceStatusGroup">
+                                      <button
+                                        className="changeTrigger"
+                                        onClick={() => void openChanges()}
+                                        disabled={gatewayStatus !== "online"}
+                                        title={tch(language, "title")}
+                                      >
+                                        <FileText size={13}/>
+                                        <span>{tch(language, "changes")}</span>
+                                        {pendingChanges > 0 && (
+                                          <span className="changeCount">
+                                            {pendingChanges}
+                                          </span>
+                                        )}
+                                      </button>
+
+                                      <span
+                                        className="workspaceReadChip"
+                                        title={activeWorkspace.path}
+                                      >
+                                        <ShieldCheck size={13}/>
+                                        {tw(language, "readOnly")}
+                                      </span>
+                                    </div>
+                                  )}
+
+                  <div className="composerControls">
+                                                        <select
+                                                          value={selectedModel}
+                                                          onChange={(event) => setSelectedModel(event.target.value)}
+                                                          disabled={running || gatewayStatus!=="online"}
+                                                        >
+                                                          <option value="AUTO">{t(language,"autoModel")}</option>
+                                                          {models.map((model) => (
+                                                            <option value={model} key={model}>{model}</option>
+                                                          ))}
+                                                        </select>
+
+                                                        <span>
+                                                          {gatewayStatus==="online"
+                                                            ? t(language,"localModels",{count:models.length})
+                                                            : t(language,"gatewayNotConnected")}
+                                                        </span>
+                                                      </div>
+                </div>
+
                 <div className="composer">
                   <textarea
-                    value={prompt}
-                    disabled={running}
-                    onChange={(event) => setPrompt(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key==="Enter" && !event.shiftKey && !running) {
-                        event.preventDefault();
-                        void send();
-                      }
-                    }}
-                    placeholder={
-                      gatewayStatus==="offline"
-                        ? t(language,"connectGateway")
-                        : t(language,"askMaestro")
-                    }
-                    rows={1}
-                  />
-
-                  <div className="workspaceToolbar">
-                    <div className="workspacePickerWrap">
-                      <button
-                        className={
-                          "workspaceTrigger " +
-                          (activeWorkspace ? "active" : "")
-                        }
-                        onClick={() => setWorkspaceMenuOpen((value) => !value)}
-                        disabled={running || gatewayStatus !== "online"}
-                        title={tw(language, "workspace")}
-                      >
-                        <FolderOpen size={15}/>
-                        <span>
-                          {activeWorkspace
-                            ? activeWorkspace.label
-                            : tw(language, "workspace")}
-                        </span>
-                        <ChevronDown size={13}/>
-                      </button>
-
-                      {workspaceMenuOpen && (
-                        <div className="workspaceMenu">
-                          <button
-                            onClick={() => void chooseLocalWorkspace("folder")}
-                            disabled={workspaceBusy}
-                          >
-                            <FolderOpen size={15}/>
-                            <span>{tw(language, "openFolder")}</span>
-                          </button>
-                          <button
-                            onClick={() => void chooseLocalWorkspace("file")}
-                            disabled={workspaceBusy}
-                          >
-                            <FileText size={15}/>
-                            <span>{tw(language, "openFile")}</span>
-                          </button>
-
-                          {workspaces.length > 0 && (
-                            <>
-                              <div className="workspaceMenuDivider"/>
-                              <span className="workspaceMenuLabel">
-                                {tw(language, "authorized")}
-                              </span>
-                              {workspaces.map((workspace) => (
-                                <button
-                                  key={workspace.id}
-                                  className={
-                                    workspace.id === activeWorkspaceId
-                                      ? "selected"
-                                      : ""
-                                  }
-                                  onClick={() => {
-                                    setActiveWorkspaceId(workspace.id);
-                                    setWorkspaceMenuOpen(false);
-                                  }}
-                                  disabled={!workspace.exists}
-                                  title={workspace.path}
-                                >
-                                  {workspace.kind === "file"
-                                    ? <FileText size={15}/>
-                                    : <FolderOpen size={15}/>}
-                                  <span>
-                                    <b>{workspace.label}</b>
-                                    <small>
-                                      {workspace.exists
-                                        ? tw(language, "readOnly")
-                                        : tw(language, "missing")}
-                                    </small>
-                                  </span>
-                                </button>
-                              ))}
-                            </>
-                          )}
-
-                          {activeWorkspace && (
-                            <>
-                              <div className="workspaceMenuDivider"/>
-                              <button
-                                onClick={() => {
-                                  setActiveWorkspaceId(null);
-                                  setWorkspaceMenuOpen(false);
-                                }}
-                              >
-                                <X size={15}/>
-                                <span>{tw(language, "detach")}</span>
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {activeWorkspace && (
-                      <span
-                        className="workspaceReadChip"
-                        title={activeWorkspace.path}
-                      >
-                        <ShieldCheck size={13}/>
-                        {tw(language, "readOnly")}
-                      </span>
-                    )}
-                  </div>
+                                      value={prompt}
+                                      disabled={running}
+                                      onChange={(event) => setPrompt(event.target.value)}
+                                      onKeyDown={(event) => {
+                                        if (event.key==="Enter" && !event.shiftKey && !running) {
+                                          event.preventDefault();
+                                          void send();
+                                        }
+                                      }}
+                                      placeholder={
+                                        gatewayStatus==="offline"
+                                          ? t(language,"connectGateway")
+                                          : t(language,"askMaestro")
+                                      }
+                                      rows={1}
+                                    />
 
                   <div className="composerBottom">
-                    <div className="composerControls">
-                      <select
-                        value={selectedModel}
-                        onChange={(event) => setSelectedModel(event.target.value)}
-                        disabled={running || gatewayStatus!=="online"}
-                      >
-                        <option value="AUTO">{t(language,"autoModel")}</option>
-                        {models.map((model) => (
-                          <option value={model} key={model}>{model}</option>
-                        ))}
-                      </select>
 
-                      <span>
-                        {gatewayStatus==="online"
-                          ? t(language,"localModels",{count:models.length})
-                          : t(language,"gatewayNotConnected")}
-                      </span>
-                    </div>
 
-                    <button
-                      onClick={() => void send()}
-                      disabled={!prompt.trim() || running || gatewayStatus!=="online"}
-                    >
-                      {running
-                        ? <LoaderCircle className="spin" size={17}/>
-                        : <ArrowUp size={17}/>}
-                    </button>
-                  </div>
+                                    <button
+                                      onClick={() => void send()}
+                                      disabled={!prompt.trim() || running || gatewayStatus!=="online"}
+                                    >
+                                      {running
+                                        ? <LoaderCircle className="spin" size={17}/>
+                                        : <ArrowUp size={17}/>}
+                                    </button>
+                                  </div>
                 </div>
 
                 <small>{t(language,"footerPrivacy")}</small>
@@ -1086,6 +1273,201 @@ export default function App() {
           </section>
         )}
       </main>
+
+      {changesOpen && (
+        <div className="changeBackdrop" onClick={() => setChangesOpen(false)}>
+          <div className="changePanel" onClick={(event) => event.stopPropagation()}>
+            <div className="changeHeader">
+              <div className="changeHeaderTitle">
+                <b>{tch(language, "title")}</b>
+                <small>{tch(language, "subtitle")}</small>
+                <span className="changeNoWrite">
+                  <ShieldCheck size={13}/>
+                  {tch(language, "executionGuard")}
+                </span>
+              </div>
+
+              <button
+                className="icon"
+                onClick={() => setChangesOpen(false)}
+                title={tch(language, "close")}
+              >
+                <X size={17}/>
+              </button>
+            </div>
+
+            <div className="changeBody">
+              <aside className="changeList">
+                <span className="changeListLabel">
+                  {tch(language, "recent")}
+                </span>
+
+                {changeProposals.length > 0 ? (
+                  changeProposals.map((proposal) => (
+                    <button
+                      className={
+                        "changeListItem " +
+                        (selectedChange?.id === proposal.id ? "selected" : "")
+                      }
+                      key={proposal.id}
+                      onClick={() => setSelectedChangeId(proposal.id)}
+                    >
+                      <span className="changeListItemTop">
+                        <b>{proposal.path}</b>
+                        <span
+                          className={
+                            "changeStatus " +
+                            proposal.status.toLowerCase()
+                          }
+                        >
+                          {tch(language, changeStatusKey(proposal.status))}
+                        </span>
+                      </span>
+                      <small>
+                        {proposal.operation.toUpperCase()} · {proposal.id}
+                      </small>
+                    </button>
+                  ))
+                ) : (
+                  <div className="changeEmpty">
+                    {tch(language, "empty")}
+                  </div>
+                )}
+              </aside>
+
+              {selectedChange ? (
+                <section className="changeViewer">
+                  <div className="changeMeta">
+                    <div>
+                      <span>{tch(language, "proposal")}</span>
+                      <b>{selectedChange.id}</b>
+                    </div>
+                    <div>
+                      <span>{tch(language, "operation")}</span>
+                      <b>{selectedChange.operation}</b>
+                    </div>
+                    <div>
+                      <span>{tch(language, "effect")}</span>
+                      <b>{selectedChange.effect}</b>
+                    </div>
+                    <div>
+                      <span>Status</span>
+                      <b>{tch(language, changeStatusKey(selectedChange.status))}</b>
+                    </div>
+                  </div>
+
+                  <div className="changeSha">
+                    <div>
+                      <span>{tch(language, "before")}</span>
+                      <code>
+                        {selectedChange.before_sha256 ?? "/dev/null"}
+                      </code>
+                    </div>
+                    <div>
+                      <span>{tch(language, "after")}</span>
+                      <code>{selectedChange.after_sha256}</code>
+                    </div>
+                  </div>
+
+                  <pre className="changeDiff">
+                    {selectedChange.diff.split("\n").map((line, index) => (
+                      <span
+                        className={"diffLine " + diffLineClass(line)}
+                        key={`${selectedChange.id}-${index}`}
+                      >
+                        {line || " "}
+                        {"\n"}
+                      </span>
+                    ))}
+                  </pre>
+
+                  {selectedChange.diff_truncated && (
+                    <div className="changeTruncated">
+                      {tch(language, "diffTruncated")}
+                    </div>
+                  )}
+
+                  <div className="changeActions">
+                    {selectedChange.status === "AWAITING_APPROVAL" && (
+                      <>
+                        <button
+                          className="danger"
+                          disabled={changeBusy}
+                          onClick={() =>
+                            void actOnChange("reject", selectedChange.id)
+                          }
+                        >
+                          {tch(language, "reject")}
+                        </button>
+                        <button
+                          className="primary"
+                          disabled={changeBusy}
+                          onClick={() =>
+                            void actOnChange("approve", selectedChange.id)
+                          }
+                        >
+                          {changeBusy
+                            ? <LoaderCircle className="spin" size={15}/>
+                            : <CheckCircle2 size={15}/>}
+                          {tch(language, "approve")}
+                        </button>
+                      </>
+                    )}
+
+                    {selectedChange.status === "APPROVED" && (
+                      <button
+                        className="apply"
+                        disabled={changeBusy}
+                        onClick={() =>
+                          void actOnChange("apply", selectedChange.id)
+                        }
+                      >
+                        {changeBusy
+                          ? <LoaderCircle className="spin" size={15}/>
+                          : <ShieldCheck size={15}/>}
+                        {tch(language, "apply")}
+                      </button>
+                    )}
+                  </div>
+
+                  {(selectedChange.status === "APPLIED" ||
+                    selectedChange.status === "APPLY_FAILED" ||
+                    selectedChange.status === "ROLLED_BACK" ||
+                    selectedChange.status === "ROLLBACK_FAILED" ||
+                    selectedChange.status === "INTEGRITY_ERROR") && (
+                    <div className="changeExecutionEvidence">
+                      {selectedChange.applied_sha256 && (
+                        <div>
+                          <span>{tch(language, "appliedSha")}</span>
+                          <code>{selectedChange.applied_sha256}</code>
+                        </div>
+                      )}
+
+                      {selectedChange.apply_error && (
+                        <div>
+                          <span>{tch(language, "executionError")}</span>
+                          <code>{selectedChange.apply_error}</code>
+                        </div>
+                      )}
+
+                      {selectedChange.workspace_state_restored === true && (
+                        <div className="changeRestored">
+                          <ShieldCheck size={14}/>
+                          {tch(language, "workspaceRestored")}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </section>
+              ) : (
+                <div className="changeEmpty">
+                  {tch(language, "empty")}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {searchOpen && (
         <div className="globalSearchBackdrop" onClick={() => setSearchOpen(false)}>

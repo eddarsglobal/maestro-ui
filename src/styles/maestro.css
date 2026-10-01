@@ -1117,3 +1117,889 @@
     max-width: 64vw;
   }
 }
+
+/* === MAESTRO UI P0.6B.2 — Governed Diff Viewer ====================== */
+
+.workspaceStatusGroup {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.changeTrigger {
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .06em;
+}
+
+.changeTrigger:hover {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--line));
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+.changeTrigger:disabled {
+  opacity: .48;
+  cursor: default;
+}
+
+.changeCount {
+  min-width: 16px;
+  height: 16px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--bg);
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.changeBackdrop {
+  position: fixed;
+  z-index: 150;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(5, 7, 12, .72);
+  backdrop-filter: blur(8px);
+}
+
+.changePanel {
+  width: min(1120px, calc(100vw - 32px));
+  height: min(760px, calc(100vh - 48px));
+  display: grid;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 17px;
+  background: var(--panel);
+  box-shadow: 0 32px 100px rgba(0,0,0,.48);
+}
+
+.changeHeader {
+  min-height: 66px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.changeHeaderTitle {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.changeHeaderTitle b {
+  font-size: 13px;
+}
+
+.changeHeaderTitle small {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.changeNoWrite {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .08em;
+}
+
+.changeBody {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 270px minmax(0, 1fr);
+}
+
+.changeList {
+  min-height: 0;
+  overflow: auto;
+  padding: 10px;
+  border-right: 1px solid var(--line);
+}
+
+.changeListLabel {
+  display: block;
+  padding: 6px 8px 8px;
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: .12em;
+}
+
+.changeListItem {
+  width: 100%;
+  min-height: 62px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 9px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.changeListItem:hover,
+.changeListItem.selected {
+  background: var(--panel2);
+}
+
+.changeListItemTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.changeListItem b {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.changeListItem small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.changeStatus {
+  flex: 0 0 auto;
+  padding: 3px 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: .06em;
+}
+
+.changeStatus.awaiting_approval {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+}
+
+.changeStatus.approved {
+  color: #8ed1a8;
+}
+
+.changeStatus.rejected,
+.changeStatus.stale {
+  color: #df8d8d;
+}
+
+.changeViewer {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  overflow: hidden;
+}
+
+.changeMeta {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0,1fr));
+  gap: 1px;
+  border-bottom: 1px solid var(--line);
+  background: var(--line);
+}
+
+.changeMeta > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 9px 11px;
+  background: var(--panel);
+}
+
+.changeMeta span {
+  color: var(--muted);
+  font-size: 7px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.changeMeta b {
+  overflow: hidden;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.changeSha {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.changeSha > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.changeSha span {
+  color: var(--muted);
+  font-size: 7px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.changeSha code {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.changeDiff {
+  min-height: 0;
+  overflow: auto;
+  margin: 0;
+  padding: 10px 0;
+  background: var(--bg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.diffLine {
+  display: block;
+  min-width: max-content;
+  padding: 0 12px;
+  white-space: pre;
+}
+
+.diffLine.add {
+  background: rgba(84, 180, 116, .12);
+}
+
+.diffLine.remove {
+  background: rgba(214, 91, 91, .12);
+}
+
+.diffLine.hunk {
+  color: #a99bea;
+}
+
+.diffLine.meta {
+  color: var(--muted);
+}
+
+.changeTruncated {
+  padding: 7px 12px;
+  border-top: 1px solid var(--line);
+  color: #d6aa72;
+  font-size: 8px;
+}
+
+.changeActions {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--line);
+}
+
+.changeActions button {
+  min-width: 100px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.changeActions button.primary {
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--line));
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+}
+
+.changeActions button.danger {
+  color: #df8d8d;
+}
+
+.changeActions button:disabled {
+  opacity: .45;
+  cursor: default;
+}
+
+.changeEmpty {
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: 30px;
+  color: var(--muted);
+  font-size: 10px;
+  text-align: center;
+}
+
+[dir="rtl"] .changeList {
+  border-right: 0;
+  border-left: 1px solid var(--line);
+}
+
+@media(max-width:800px) {
+  .changeBackdrop {
+    padding: 10px;
+  }
+
+  .changePanel {
+    width: calc(100vw - 20px);
+    height: calc(100vh - 20px);
+  }
+
+  .changeBody {
+    grid-template-columns: 1fr;
+    grid-template-rows: 190px minmax(0, 1fr);
+  }
+
+  .changeList {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  [dir="rtl"] .changeList {
+    border-left: 0;
+  }
+
+  .changeMeta {
+    grid-template-columns: repeat(2, minmax(0,1fr));
+  }
+
+  .changeSha {
+    grid-template-columns: 1fr;
+  }
+
+  .workspaceStatusGroup {
+    gap: 5px;
+  }
+
+  .changeTrigger > span:first-of-type {
+    display: none;
+  }
+}
+
+
+/* === MAESTRO UI P0.6B.2 — UI POLISH ================================ */
+
+/*
+ * Sidebar architecture:
+ *
+ * SIDEBAR
+ *   ├─ header
+ *   ├─ new chat
+ *   ├─ sidebarConversations  -> scroll owner
+ *   │    └─ conversationList -> overflow visible
+ *   └─ footer/navigation
+ */
+
+.sidebarConversations {
+  flex: 1 1 auto;
+  min-height: 0;
+
+  overflow-y: auto;
+  overflow-x: visible;
+
+  padding-right: 2px;
+}
+
+.conversationList {
+  min-height: auto;
+  overflow: visible;
+  padding-right: 0;
+}
+
+
+/*
+ * Conversation contextual menu must remain above rows
+ * and the rest of the sidebar UI.
+ */
+
+.conversationMenu {
+  z-index: 500;
+}
+
+
+/*
+ * Workspace Context Rail
+ *
+ * The workspace is NOT part of the mission textarea anymore.
+ * It is a contextual layer directly above the composer.
+ */
+
+.workspaceToolbar {
+  width: 100%;
+  min-height: 38px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+
+  padding: 5px 10px;
+  margin: 0 0 -1px;
+
+  position: relative;
+  z-index: 45;
+
+  border: 1px solid var(--line);
+  border-bottom-color:
+    color-mix(
+      in srgb,
+      var(--accent) 18%,
+      var(--line)
+    );
+
+  border-radius: 14px 14px 0 0;
+
+  background:
+    color-mix(
+      in srgb,
+      var(--panel) 96%,
+      var(--accent) 4%
+    );
+
+  box-shadow:
+    0 -8px 28px rgba(0, 0, 0, 0.10);
+}
+
+
+/*
+ * Workspace selector remains a distinct control inside
+ * the Workspace Context Rail.
+ */
+
+.workspaceTrigger {
+  min-height: 30px;
+  max-width: min(360px, 55vw);
+
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+
+  padding: 0 10px;
+
+  border:
+    1px solid
+    color-mix(
+      in srgb,
+      var(--accent) 16%,
+      var(--line)
+    );
+
+  border-radius: 9px;
+
+  background:
+    color-mix(
+      in srgb,
+      var(--panel2) 72%,
+      transparent
+    );
+
+  color: var(--muted);
+
+  font-size: 10px;
+  cursor: pointer;
+
+  transition:
+    border-color .16s ease,
+    background .16s ease,
+    color .16s ease;
+}
+
+.workspaceTrigger:hover,
+.workspaceTrigger.active {
+  color: var(--text);
+
+  border-color:
+    color-mix(
+      in srgb,
+      var(--accent) 46%,
+      var(--line)
+    );
+
+  background:
+    color-mix(
+      in srgb,
+      var(--accent) 9%,
+      var(--panel2)
+    );
+}
+
+
+/*
+ * The composer becomes the lower part of the same visual unit.
+ */
+
+.composerDock .composer {
+  position: relative;
+  z-index: 40;
+
+  border-radius: 0 0 18px 18px;
+}
+
+
+/*
+ * Workspace dropdown opens above the dock.
+ */
+
+.workspaceMenu {
+  z-index: 600;
+}
+
+
+@media(max-width:720px) {
+  .workspaceToolbar {
+    min-height: 36px;
+    padding: 4px 7px;
+  }
+
+  .workspaceTrigger {
+    max-width: 58vw;
+  }
+}
+
+/* === END MAESTRO UI P0.6B.2 — UI POLISH ============================ */
+
+
+
+/* === MAESTRO P0.6B.2 — COMPOSER GEOMETRY FIX CANONICAL ============ */
+
+/*
+ * Canonical hierarchy:
+ *
+ * composerDock
+ *   └─ composerWrap
+ *       ├─ workspaceToolbar
+ *       ├─ composer
+ *       │   ├─ textarea
+ *       │   └─ composerBottom
+ *       └─ privacy
+ */
+
+.composerDock .composerWrap {
+  position: static !important;
+
+  width: min(780px, 100%);
+  max-width: 780px;
+
+  margin: 0 auto !important;
+  padding: 0 !important;
+
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+
+  pointer-events: auto;
+}
+
+
+/* Workspace Context */
+
+.composerDock .workspaceToolbar {
+  width: 100%;
+  max-width: none;
+
+  min-height: 38px;
+
+  margin: 0 0 -1px 0;
+  padding: 5px 10px;
+
+  flex: 0 0 auto;
+
+  border: 1px solid var(--line);
+  border-bottom-color:
+    color-mix(
+      in srgb,
+      var(--accent) 18%,
+      var(--line)
+    );
+
+  border-radius: 14px 14px 0 0;
+
+  background:
+    color-mix(
+      in srgb,
+      var(--panel) 96%,
+      var(--accent) 4%
+    );
+
+  position: relative;
+  z-index: 45;
+}
+
+
+/* Mission Composer */
+
+.composerDock .composer {
+  position: relative !important;
+
+  width: 100% !important;
+  max-width: none !important;
+
+  margin: 0 !important;
+  padding: 12px;
+
+  border-radius: 0 0 18px 18px;
+
+  z-index: 40;
+}
+
+.composerDock .composer textarea {
+  display: block;
+
+  width: 100%;
+  min-height: 42px;
+
+  margin: 0 0 7px;
+}
+
+
+/* Model + send controls are part of composer */
+
+.composerDock .composerBottom {
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+
+/* Privacy is below the unified composer */
+
+.composerDock .composerWrap > small {
+  display: block;
+
+  width: 100%;
+
+  margin-top: 8px;
+
+  text-align: center;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+
+/* Workspace picker dropdown opens upward */
+
+.composerDock .workspaceMenu {
+  z-index: 700;
+}
+
+
+/*
+ * Chat must reserve enough vertical space for:
+ * workspace rail + composer + privacy.
+ */
+
+.chat {
+  padding-bottom: 190px;
+}
+
+
+@media(max-width:720px) {
+  .composerDock .composerWrap {
+    width: 100%;
+    max-width: none;
+  }
+
+  .composerDock .workspaceToolbar {
+    min-height: 36px;
+    padding: 4px 7px;
+  }
+
+  .composerDock .composer {
+    width: 100% !important;
+  }
+
+  .chat {
+    padding-bottom: 180px;
+  }
+}
+
+/* === END MAESTRO P0.6B.2 — COMPOSER GEOMETRY FIX CANONICAL ======== */
+
+
+/* === MAESTRO P0.6B.2 — COMPOSER CONTROLS IN WORKSPACE ============= */
+
+/*
+ * Toolbar:
+ *
+ * [ workspace ] [ changes/read ] [ model controls ]
+ */
+
+.composerDock .workspaceToolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+
+/* Model controls are the right-most toolbar element. */
+
+.composerDock .workspaceToolbar .composerControls {
+  margin-left: auto;
+
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+
+  flex: 0 1 auto;
+  min-width: 0;
+
+  gap: 7px;
+}
+
+
+.composerDock .workspaceToolbar .composerControls select {
+  width: auto;
+  max-width: 190px;
+  height: 28px;
+
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+
+.composerDock .workspaceToolbar .composerControls > span {
+  max-width: 105px;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+/*
+ * composerBottom now contains only the send button.
+ */
+
+.composerDock .composerBottom {
+  justify-content: flex-end;
+}
+
+
+/*
+ * Keep Workspace state controls compact.
+ */
+
+.composerDock .workspaceStatusGroup {
+  flex: 0 0 auto;
+}
+
+
+/* Responsive toolbar */
+
+@media(max-width:900px) {
+  .composerDock .workspaceToolbar .composerControls > span {
+    display: none;
+  }
+
+  .composerDock .workspaceToolbar .composerControls select {
+    max-width: 175px;
+  }
+}
+
+
+@media(max-width:720px) {
+  .composerDock .workspaceToolbar {
+    gap: 5px;
+  }
+
+  .composerDock .workspaceToolbar .composerControls select {
+    max-width: 150px;
+  }
+}
+
+/* === END MAESTRO P0.6B.2 — COMPOSER CONTROLS IN WORKSPACE ========= */
+
+
+/* === MAESTRO P0.6B.3 — GOVERNED APPLY UI === */
+
+.changeStatus.applied {
+  color: #7ee2a8;
+}
+
+.changeStatus.apply_failed,
+.changeStatus.rollback_failed,
+.changeStatus.integrity_error {
+  color: #ff9a9a;
+}
+
+.changeStatus.rolled_back {
+  color: #f5d77c;
+}
+
+.changeActions button.apply {
+  border: 1px solid var(--line);
+  background: var(--panel2);
+  color: var(--text);
+}
+
+.changeExecutionEvidence {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.changeExecutionEvidence > div {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.changeExecutionEvidence code {
+  overflow-wrap: anywhere;
+}
+
+.changeRestored {
+  display: flex !important;
+  align-items: center;
+  gap: 6px;
+}
+
+/* === END MAESTRO P0.6B.3 — GOVERNED APPLY UI === */

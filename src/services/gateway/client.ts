@@ -1,4 +1,5 @@
 import type {
+  ChangeProposal,
   ConversationRecord,
   ConversationSummary,
   GatewayHealth,
@@ -240,4 +241,124 @@ export async function chooseWorkspace(
   );
 
   return readJson<WorkspacePickerResult>(response);
+}
+
+export async function listChangeProposals(
+  baseUrl: string,
+  sessionToken: string,
+  workspaceId?: string | null,
+): Promise<ChangeProposal[]> {
+  const params = new URLSearchParams();
+
+  if (workspaceId) {
+    params.set("workspace_id", workspaceId);
+  }
+
+  const suffix = params.size ? `?${params.toString()}` : "";
+
+  const response = await fetch(
+    `${normalizeBaseUrl(baseUrl)}/changes${suffix}`,
+    {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "X-Maestro-Session": sessionToken,
+      },
+      cache: "no-store",
+    },
+  );
+
+  const data = await readJson<{
+    changes: ChangeProposal[];
+  }>(response);
+
+  return data.changes;
+}
+
+export async function getChangeProposal(
+  baseUrl: string,
+  sessionToken: string,
+  changeId: string,
+): Promise<ChangeProposal> {
+  const response = await fetch(
+    `${normalizeBaseUrl(baseUrl)}/changes/${encodeURIComponent(changeId)}`,
+    {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "X-Maestro-Session": sessionToken,
+      },
+      cache: "no-store",
+    },
+  );
+
+  return readJson<ChangeProposal>(response);
+}
+
+export async function approveChangeProposal(
+  baseUrl: string,
+  sessionToken: string,
+  changeId: string,
+): Promise<ChangeProposal> {
+  const response = await fetch(
+    `${normalizeBaseUrl(baseUrl)}/changes/${encodeURIComponent(changeId)}/approve`,
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-Maestro-Session": sessionToken,
+      },
+      body: JSON.stringify({}),
+      cache: "no-store",
+    },
+  );
+
+  return readJson<ChangeProposal>(response);
+}
+
+export async function rejectChangeProposal(
+  baseUrl: string,
+  sessionToken: string,
+  changeId: string,
+  reason?: string,
+): Promise<ChangeProposal> {
+  const response = await fetch(
+    `${normalizeBaseUrl(baseUrl)}/changes/${encodeURIComponent(changeId)}/reject`,
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-Maestro-Session": sessionToken,
+      },
+      body: JSON.stringify(reason?.trim() ? { reason: reason.trim() } : {}),
+      cache: "no-store",
+    },
+  );
+
+  return readJson<ChangeProposal>(response);
+}
+
+
+export async function applyChangeProposal(
+  baseUrl: string,
+  sessionToken: string,
+  changeId: string,
+): Promise<ChangeProposal> {
+  const response = await fetch(
+    `${normalizeBaseUrl(baseUrl)}/changes/${encodeURIComponent(changeId)}/apply`,
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-Maestro-Session": sessionToken,
+      },
+      body: JSON.stringify({}),
+      cache: "no-store",
+    },
+  );
+
+  return readJson<ChangeProposal>(response);
 }

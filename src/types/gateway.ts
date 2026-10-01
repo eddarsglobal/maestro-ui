@@ -9,6 +9,8 @@ export type GatewayHealth = {
   mission_protocol?: string;
   conversation_storage?: string;
   workspace?: string;
+  workspace_write_execution?: boolean;
+  change_protocol?: string;
   native_workspace_picker?: string;
 };
 
@@ -142,3 +144,62 @@ export function loadLocalRuntimeSettings(): LocalRuntimeSettings {
     return DEFAULT_LOCAL_RUNTIME_SETTINGS;
   }
 }
+
+export type ChangeProposalStatus =
+  | "AWAITING_APPROVAL"
+  | "APPROVED"
+  | "REJECTED"
+  | "STALE"
+  | "APPLIED"
+  | "APPLY_FAILED"
+  | "ROLLED_BACK"
+  | "ROLLBACK_FAILED"
+  | "INTEGRITY_ERROR";
+
+export type ChangeHistoryEvent = {
+  action: string;
+  at: string;
+  reason?: string;
+};
+
+export type ChangeProposal = {
+  id: string;
+  protocol: string;
+  workspace_id: string;
+  workspace_label: string;
+  operation: "write" | "edit" | "patch";
+  effect: "create" | "edit";
+  path: string;
+  before_exists: boolean;
+  before_sha256: string | null;
+  after_sha256: string;
+  before_size: number;
+  after_size: number;
+  diff: string;
+  diff_truncated: boolean;
+  status: ChangeProposalStatus;
+  approval_required: boolean;
+  workspace_write_performed: boolean;
+  created_at: string;
+  updated_at: string;
+  approval_source?: string;
+  approved_at?: string;
+  rejected_at?: string;
+  rejection_reason?: string;
+  stale_reason?: string;
+
+  apply_protocol?: string;
+  apply_started_at?: string;
+  apply_attempts?: number;
+
+  applied_at?: string;
+  applied_sha256?: string;
+
+  apply_error?: string;
+  rollback_error?: string;
+
+  workspace_state_restored?: boolean;
+  recovered_after_restart?: boolean;
+
+  history: ChangeHistoryEvent[];
+};
