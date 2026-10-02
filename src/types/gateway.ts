@@ -10,6 +10,7 @@ export type GatewayHealth = {
   conversation_storage?: string;
   workspace?: string;
   workspace_write_execution?: boolean;
+  workspace_delete_execution?: boolean;
   change_protocol?: string;
   native_workspace_picker?: string;
 };
@@ -167,13 +168,13 @@ export type ChangeProposal = {
   protocol: string;
   workspace_id: string;
   workspace_label: string;
-  operation: "write" | "edit" | "patch" | "rename" | "move";
-  effect: "create" | "edit" | "rename" | "move";
+  operation: "write" | "edit" | "patch" | "rename" | "move" | "delete";
+  effect: "create" | "edit" | "rename" | "move" | "delete";
   path: string;
   destination_path?: string;
   before_exists: boolean;
   before_sha256: string | null;
-  after_sha256: string;
+  after_sha256: string | null;
   before_size: number;
   after_size: number;
   diff: string;
@@ -197,9 +198,22 @@ export type ChangeProposal = {
   applied_sha256?: string;
   applied_path?: string;
 
+  deleted_path?: string;
+  deleted_sha256?: string;
+
   before_inode?: number;
   before_device?: number;
+  before_mode?: number;
   destination_before_exists?: boolean;
+
+  risk_level?: string;
+  delete_confirmation_required?: boolean;
+
+  recovery_required?: boolean;
+  recovery_available?: boolean;
+  recovery_sha256?: string;
+  recovery_size?: number;
+  recovery_staged_at?: string;
 
   apply_error?: string;
   rollback_error?: string;

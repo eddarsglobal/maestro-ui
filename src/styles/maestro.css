@@ -2071,3 +2071,132 @@
 }
 
 /* === END MAESTRO P0.6C.1 — GOVERNED RELOCATION UI === */
+
+
+/* === MAESTRO P0.6C.2 — GOVERNED DELETE UI =================== */
+
+.changeListDelete {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #e05a52;
+  font-weight: 700;
+  letter-spacing: .03em;
+}
+
+.changeDeleteRisk {
+  padding: 13px;
+  border-bottom: 1px solid var(--line);
+  border-left: 3px solid #e05a52;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(224, 90, 82, .12),
+      rgba(224, 90, 82, .025)
+    );
+}
+
+.changeDeleteRiskTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.changeDeleteRiskTop > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #e05a52;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .08em;
+}
+
+.changeDeleteRiskTop > b {
+  font-size: 12px;
+}
+
+.changeDeleteRisk p {
+  margin: 0 0 11px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.changeDeleteFacts {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1.5fr)
+    minmax(110px, .55fr)
+    minmax(150px, .8fr);
+  gap: 1px;
+  border: 1px solid var(--line);
+  background: var(--line);
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+.changeDeleteFacts > div {
+  min-width: 0;
+  padding: 9px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  background: var(--panel);
+}
+
+.changeDeleteFacts span {
+  color: var(--muted);
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.changeDeleteFacts code {
+  overflow-wrap: anywhere;
+  font-size: 10px;
+}
+
+.changeDeleteFacts b {
+  font-size: 10px;
+}
+
+.changeActions button.deleteApprove {
+  border: 1px solid rgba(224, 90, 82, .48);
+  background: rgba(224, 90, 82, .10);
+  color: var(--text);
+}
+
+.changeActions button.deleteApply {
+  border: 1px solid rgba(224, 90, 82, .68);
+  background: rgba(224, 90, 82, .18);
+  color: var(--text);
+}
+
+.changeActions button.deleteApprove:hover:not(:disabled),
+.changeActions button.deleteApply:hover:not(:disabled) {
+  background: rgba(224, 90, 82, .26);
+}
+
+.changeRecoveryReady {
+  color: #4ea36d;
+}
+
+.changeRecoveryMissing {
+  color: #d45a52;
+}
+
+@media (max-width: 760px) {
+  .changeDeleteRiskTop {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .changeDeleteFacts {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* === END MAESTRO P0.6C.2 — GOVERNED DELETE UI ============== */

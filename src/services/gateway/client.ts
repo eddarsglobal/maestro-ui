@@ -299,6 +299,7 @@ export async function approveChangeProposal(
   baseUrl: string,
   sessionToken: string,
   changeId: string,
+  confirmDelete = false,
 ): Promise<ChangeProposal> {
   const response = await fetch(
     `${normalizeBaseUrl(baseUrl)}/changes/${encodeURIComponent(changeId)}/approve`,
@@ -309,7 +310,11 @@ export async function approveChangeProposal(
         "Content-Type": "application/json",
         "X-Maestro-Session": sessionToken,
       },
-      body: JSON.stringify({}),
+      body: JSON.stringify(
+        confirmDelete
+          ? { confirm_delete: true }
+          : {},
+      ),
       cache: "no-store",
     },
   );

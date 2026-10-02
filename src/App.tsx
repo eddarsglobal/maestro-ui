@@ -337,14 +337,29 @@ export default function App() {
       targetChange?.operation === "rename" ||
       targetChange?.operation === "move";
 
+    const targetIsDelete =
+      targetChange?.operation === "delete";
+
+    if (
+      action === "approve" &&
+      targetIsDelete &&
+      !window.confirm(
+        tch(language, "approveDeleteConfirm"),
+      )
+    ) {
+      return;
+    }
+
     if (
       action === "apply" &&
       !window.confirm(
         tch(
           language,
-          targetIsRelocation
-            ? "applyRelocationConfirm"
-            : "applyConfirm",
+          targetIsDelete
+            ? "applyDeleteConfirm"
+            : targetIsRelocation
+              ? "applyRelocationConfirm"
+              : "applyConfirm",
         ),
       )
     ) {
@@ -360,6 +375,7 @@ export default function App() {
             runtimeSettings.gatewayUrl,
             token,
             changeId,
+            targetIsDelete,
           );
         }
 
@@ -713,6 +729,9 @@ export default function App() {
   const selectedIsRelocation =
     selectedChange?.operation === "rename" ||
     selectedChange?.operation === "move";
+
+  const selectedIsDelete =
+    selectedChange?.operation === "delete";
 
   const runtimeLabel =
     gatewayStatus === "online"
@@ -1352,6 +1371,13 @@ export default function App() {
                             → {proposal.destination_path}
                           </small>
                         )}
+
+                      {proposal.operation === "delete" && (
+                        <small className="changeListDelete">
+                          <Trash2 size={11}/>
+                          {tch(language, "riskHigh")} · {tch(language, "governedDelete")}
+                        </small>
+                      )}
                     </button>
                   ))
                 ) : (
@@ -1401,6 +1427,43 @@ export default function App() {
                       </div>
                     )}
 
+                  {selectedIsDelete && (
+                    <div className="changeDeleteRisk" role="alert">
+                      <div className="changeDeleteRiskTop">
+                        <span>
+                          <Trash2 size={15}/>
+                          {tch(language, "riskHigh")}
+                        </span>
+                        <b>{tch(language, "governedDelete")}</b>
+                      </div>
+
+                      <p>
+                        {tch(language, "deleteWarning")}
+                      </p>
+
+                      <div className="changeDeleteFacts">
+                        <div>
+                          <span>{tch(language, "deleteTarget")}</span>
+                          <code>{selectedChange.path}</code>
+                        </div>
+
+                        <div>
+                          <span>{tch(language, "fileSize")}</span>
+                          <code>{selectedChange.before_size} B</code>
+                        </div>
+
+                        <div>
+                          <span>{tch(language, "recovery")}</span>
+                          <b>
+                            {selectedChange.recovery_required
+                              ? tch(language, "recoveryRequired")
+                              : tch(language, "recoveryUnavailable")}
+                          </b>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="changeSha">
                     <div>
                       <span>{tch(language, "before")}</span>
@@ -1410,7 +1473,9 @@ export default function App() {
                     </div>
                     <div>
                       <span>{tch(language, "after")}</span>
-                      <code>{selectedChange.after_sha256}</code>
+                      <code>
+                        {selectedChange.after_sha256 ?? "/dev/null"}
+                      </code>
                     </div>
                   </div>
 
@@ -1445,7 +1510,7 @@ export default function App() {
                           {tch(language, "reject")}
                         </button>
                         <button
-                          className="primary"
+                          className={selectedIsDelete ? "deleteApprove" : "primary"}
                           disabled={changeBusy}
                           onClick={() =>
                             void actOnChange("approve", selectedChange.id)
@@ -1454,14 +1519,14 @@ export default function App() {
                           {changeBusy
                             ? <LoaderCircle className="spin" size={15}/>
                             : <CheckCircle2 size={15}/>}
-                          {tch(language, "approve")}
+                          {tch(language, selectedIsDelete ? "approveDelete" : "approve")}
                         </button>
                       </>
                     )}
 
                     {selectedChange.status === "APPROVED" && (
                       <button
-                        className="apply"
+                        className={selectedIsDelete ? "apply deleteApply" : "apply"}
                         disabled={changeBusy}
                         onClick={() =>
                           void actOnChange("apply", selectedChange.id)
@@ -1470,7 +1535,7 @@ export default function App() {
                         {changeBusy
                           ? <LoaderCircle className="spin" size={15}/>
                           : <ShieldCheck size={15}/>}
-                        {tch(language, "apply")}
+                        {tch(language, selectedIsDelete ? "applyDelete" : "apply")}
                       </button>
                     )}
                   </div>
@@ -1488,12 +1553,74 @@ export default function App() {
                         </div>
                       )}
 
-                      {selectedChange.applied_sha256 && (
+                      {!selectedIsDelete &&
+                        selectedChange.applied_sha256 && (
                         <div>
                           <span>{tch(language, "appliedSha")}</span>
                           <code>{selectedChange.applied_sha256}</code>
                         </div>
                       )}
+
+                      {selectedIsDelete &&
+                        selectedChange.deleted_path && (
+                          <div>
+                            <span>{tch(language, "deletedPath")}</span>
+                            <code>{selectedChange.deleted_path}</code>
+                          </div>
+                        )}
+
+                      {selectedIsDelete &&
+                        selectedChange.deleted_sha256 && (
+                          <div>
+                            <span>{tch(language, "deletedSha")}</span>
+                            <code>{selectedChange.deleted_sha256}</code>
+                          </div>
+                        )}
+
+                      {selectedIsDelete &&
+                        typeof selectedChange.recovery_available === "boolean" && (
+                          <div>
+                            <span>{tch(language, "recovery")}</span>
+                            <b
+                              className={
+                                selectedChange.recovery_available
+                                  ? "changeRecoveryReady"
+                                  : "changeRecoveryMissing"
+                              }
+                            >
+                              {tch(
+                                language,
+                                selectedChange.recovery_available
+                                  ? "recoveryAvailable"
+                                  : "recoveryUnavailable",
+                              )}
+                            </b>
+                          </div>
+                        )}
+
+                      {selectedIsDelete &&
+                        selectedChange.recovery_sha256 && (
+                          <div>
+                            <span>{tch(language, "recoverySha")}</span>
+                            <code>{selectedChange.recovery_sha256}</code>
+                          </div>
+                        )}
+
+                      {selectedIsDelete &&
+                        selectedChange.recovery_size !== undefined && (
+                          <div>
+                            <span>{tch(language, "recoverySize")}</span>
+                            <code>{selectedChange.recovery_size} B</code>
+                          </div>
+                        )}
+
+                      {selectedIsDelete &&
+                        selectedChange.recovery_staged_at && (
+                          <div>
+                            <span>{tch(language, "recoveryStagedAt")}</span>
+                            <code>{selectedChange.recovery_staged_at}</code>
+                          </div>
+                        )}
 
                       {selectedChange.apply_error && (
                         <div>
