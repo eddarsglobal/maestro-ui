@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Archive, ArrowUp, BookOpen, Bot, CheckCircle2, ChevronDown, CircleAlert,
   ExternalLink, FileText, FolderOpen, GitBranch, HelpCircle, LoaderCircle, Menu,
@@ -65,7 +65,7 @@ function routeFromHash(): View {
 }
 
 function shortResource(resourceId: string): string {
-  return resourceId.replace(/^ollama::/, "");
+  return resourceId.replace(/^[^:]+::/, "");
 }
 
 function recordToChat(record: ConversationRecord): ChatItem[] {
@@ -157,7 +157,14 @@ export default function App() {
     useState<GatewayHealth | null>(null);
   const [models, setModels] = useState<string[]>([]);
   const [selectedModel, setSelectedModel] = useState("AUTO");
+  const acceptModelInventory = useCallback((nextModels: string[]) => {
+    setModels(nextModels);
+    setSelectedModel((current) =>
+      current !== "AUTO" && !nextModels.includes(current) ? "AUTO" : current,
+    );
+  }, []);
   const [running, setRunning] = useState(false);
+  const cancelMissionRef = useRef<AbortController | null>(null);
 
   const [conversations, setConversations] =
     useState<ConversationSummary[]>([]);
@@ -214,7 +221,7 @@ export default function App() {
   const go = (next: View) => {
     setView(next);
     setMobile(false);
-    window.location.hash = next === "chat" ? "#/" : `#/${next}`;
+    window.location.assign(next === "chat" ? "#/" : `#/${next}`);
   };
 
   const setTheme = (next: "dark"|"light") => {
@@ -223,14 +230,14 @@ export default function App() {
     setThemeState(next);
   };
 
-  const ensureSession = async (): Promise<string> => {
+  const ensureSession = useCallback(async (): Promise<string> => {
     if (sessionTokenRef.current) return sessionTokenRef.current;
     const session = await openGatewaySession(runtimeSettings.gatewayUrl);
     sessionTokenRef.current = session.session_token;
     return session.session_token;
-  };
+  }, [runtimeSettings.gatewayUrl]);
 
-  const withFreshSession = async <T,>(
+  const withFreshSession = useCallback(async <T,>(
     fn: (token: string) => Promise<T>,
   ): Promise<T> => {
     let token = await ensureSession();
@@ -245,7 +252,7 @@ export default function App() {
       token = await ensureSession();
       return fn(token);
     }
-  };
+  }, [ensureSession]);
 
   const refreshConversations = async () => {
     if (gatewayStatus === "offline") return;
@@ -260,7 +267,7 @@ export default function App() {
     }
   };
 
-  const refreshWorkspaces = async () => {
+  const refreshWorkspaces = useCallback(async () => {
     if (gatewayStatus === "offline") return;
 
     try {
@@ -269,18 +276,17 @@ export default function App() {
       );
       setWorkspaces(rows);
 
-      if (
-        activeWorkspaceId &&
-        !rows.some((item) => item.id === activeWorkspaceId && item.exists)
-      ) {
-        setActiveWorkspaceId(null);
-      }
+      setActiveWorkspaceId((current) =>
+        current && !rows.some((item) => item.id === current && item.exists)
+          ? null
+          : current,
+      );
     } catch {
       setWorkspaces([]);
     }
-  };
+  }, [gatewayStatus, runtimeSettings.gatewayUrl, withFreshSession]);
 
-  const refreshChanges = async (
+  const refreshChanges = useCallback(async (
     workspaceId: string | null = activeWorkspaceId,
   ): Promise<ChangeProposal[]> => {
     if (gatewayStatus === "offline" || !workspaceId) {
@@ -298,19 +304,18 @@ export default function App() {
       );
       setChangeProposals(rows);
 
-      if (
-        selectedChangeId &&
-        !rows.some((item) => item.id === selectedChangeId)
-      ) {
-        setSelectedChangeId(rows[0]?.id ?? null);
-      }
+      setSelectedChangeId((current) =>
+        current && !rows.some((item) => item.id === current)
+          ? rows[0]?.id ?? null
+          : current,
+      );
 
       return rows;
     } catch {
       setChangeProposals([]);
       return [];
     }
-  };
+  }, [activeWorkspaceId, gatewayStatus, runtimeSettings.gatewayUrl, withFreshSession]);
 
   const openChanges = async () => {
     if (!activeWorkspaceId || gatewayStatus !== "online") return;
@@ -465,9 +470,9 @@ export default function App() {
 
         try {
           const modelData = await listGatewayModels(runtimeSettings.gatewayUrl);
-          if (!cancelled) setModels(modelData.models || []);
+          if (!cancelled) acceptModelInventory(modelData.models || []);
         } catch {
-          if (!cancelled) setModels([]);
+          if (!cancelled) acceptModelInventory([]);
         }
 
         try {
@@ -482,7 +487,7 @@ export default function App() {
         if (cancelled) return;
         setGatewayHealth(null);
         setGatewayStatus("offline");
-        setModels([]);
+        acceptModelInventory([]);
         setConversations([]);
         sessionTokenRef.current = null;
       }
@@ -490,26 +495,77 @@ export default function App() {
 
     void inspectRuntime();
     return () => { cancelled = true; };
-  }, [runtimeSettings.gatewayUrl]);
+  }, [runtimeSettings.gatewayUrl, withFreshSession, acceptModelInventory]);
+
+  // Models are discovered from the live Gateway, never pre-listed in UI code.
+  useEffect(() => {
+    if (gatewayStatus !== "online") return;
+    let active = true;
+    const refresh = async () => {
+      try {
+        const result = await listGatewayModels(runtimeSettings.gatewayUrl);
+        if (active) acceptModelInventory(Array.isArray(result.models) ? result.models : []);
+      } catch {
+        if (active) acceptModelInventory([]);
+      }
+    };
+    const timer = window.setInterval(() => void refresh(), 15000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [gatewayStatus, runtimeSettings.gatewayUrl, acceptModelInventory]);
 
   useEffect(() => {
     if (gatewayStatus !== "online") return;
-    void refreshWorkspaces();
-  }, [gatewayStatus, runtimeSettings.gatewayUrl]);
+    let cancelled = false;
+    const inspectWorkspaces = async () => {
+      try {
+        const rows = await withFreshSession((token) =>
+          listWorkspaces(runtimeSettings.gatewayUrl, token),
+        );
+        if (cancelled) return;
+        setWorkspaces(rows);
+        setActiveWorkspaceId((current) =>
+          current && !rows.some((item) => item.id === current && item.exists)
+            ? null
+            : current,
+        );
+      } catch {
+        if (!cancelled) setWorkspaces([]);
+      }
+    };
+    void inspectWorkspaces();
+    return () => { cancelled = true; };
+  }, [gatewayStatus, runtimeSettings.gatewayUrl, withFreshSession]);
 
   useEffect(() => {
-    if (gatewayStatus !== "online" || !activeWorkspaceId) {
-      setChangeProposals([]);
-      setSelectedChangeId(null);
-      return;
-    }
-
-    void refreshChanges(activeWorkspaceId);
-  }, [
-    activeWorkspaceId,
-    gatewayStatus,
-    runtimeSettings.gatewayUrl,
-  ]);
+    let cancelled = false;
+    const inspectChanges = async () => {
+      if (gatewayStatus !== "online" || !activeWorkspaceId) {
+        // Keep state updates out of the synchronous effect lifecycle.
+        await Promise.resolve();
+        if (!cancelled) {
+          setChangeProposals([]);
+          setSelectedChangeId(null);
+        }
+        return;
+      }
+      try {
+        const rows = await withFreshSession((token) =>
+          listChangeProposals(runtimeSettings.gatewayUrl, token, activeWorkspaceId),
+        );
+        if (cancelled) return;
+        setChangeProposals(rows);
+        setSelectedChangeId((current) =>
+          current && !rows.some((item) => item.id === current)
+            ? rows[0]?.id ?? null
+            : current,
+        );
+      } catch {
+        if (!cancelled) setChangeProposals([]);
+      }
+    };
+    void inspectChanges();
+    return () => { cancelled = true; };
+  }, [activeWorkspaceId, gatewayStatus, runtimeSettings.gatewayUrl, withFreshSession]);
 
   useEffect(() => {
     if (!searchOpen) return;
@@ -533,7 +589,7 @@ export default function App() {
     }, 120);
 
     return () => window.clearTimeout(timer);
-  }, [searchOpen, searchQuery]);
+  }, [searchOpen, searchQuery, runtimeSettings.gatewayUrl, withFreshSession]);
 
   const startNewChat = () => {
     setActiveConversationId(null);
@@ -553,6 +609,8 @@ export default function App() {
     ]);
     setPrompt("");
     setRunning(true);
+    const cancellationController = new AbortController();
+    cancelMissionRef.current = cancellationController;
 
     try {
       setGatewayStatus("checking");
@@ -568,7 +626,8 @@ export default function App() {
           max_tokens: 512,
           conversation_id: activeConversationId,
           workspace_id: activeWorkspaceId,
-        }),
+          ui_language: language,
+        }, { signal: cancellationController.signal }),
       );
 
       setActiveConversationId(mission.conversation_id);
@@ -593,6 +652,9 @@ export default function App() {
         { id: crypto.randomUUID(), role: "error", text: message },
       ]);
     } finally {
+      if (cancelMissionRef.current === cancellationController) {
+        cancelMissionRef.current = null;
+      }
       setRunning(false);
     }
   };
@@ -1006,8 +1068,8 @@ export default function App() {
                                   </div>
                                   <div>
                                     <span>{t(language,"latency")}</span>
-                                    <b>{typeof message.mission.metrics.total_ms==="number"
-                                      ? `${(Number(message.mission.metrics.total_ms)/1000).toFixed(1)}s`
+                                    <b>{typeof message.mission.metrics.wall_ms==="number" || typeof message.mission.metrics.total_ms==="number"
+                                      ? `${(Number(typeof message.mission.metrics.wall_ms === "number" ? message.mission.metrics.wall_ms : message.mission.metrics.total_ms)/1000).toFixed(1)}s`
                                       : "—"}</b>
                                   </div>
                                   <div>
@@ -1208,14 +1270,24 @@ export default function App() {
                   <div className="composerBottom">
 
 
-                                    <button
-                                      onClick={() => void send()}
-                                      disabled={!prompt.trim() || running || gatewayStatus!=="online"}
-                                    >
-                                      {running
-                                        ? <LoaderCircle className="spin" size={17}/>
-                                        : <ArrowUp size={17}/>}
-                                    </button>
+                                    {running ? (
+                                      <button
+                                        type="button"
+                                        aria-label={t(language, "stopMission")}
+                                        title={t(language, "stopMission")}
+                                        onClick={() => cancelMissionRef.current?.abort()}
+                                      >
+                                        <X size={17}/>
+                                      </button>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => void send()}
+                                        disabled={!prompt.trim() || gatewayStatus!=="online"}
+                                      >
+                                        <ArrowUp size={17}/>
+                                      </button>
+                                    )}
                                   </div>
                 </div>
 

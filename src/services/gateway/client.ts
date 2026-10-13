@@ -7,6 +7,7 @@ import type {
   MissionRequest,
   MissionResponse,
   ModelsResponse,
+  ProvidersResponse,
   WorkspacePickerResult,
   WorkspaceRecord,
 } from "../../types/gateway";
@@ -65,6 +66,17 @@ export async function openGatewaySession(
   return readJson<GatewaySession>(response);
 }
 
+export async function listGatewayProviders(
+  baseUrl: string,
+): Promise<ProvidersResponse> {
+  const response = await fetch(`${normalizeBaseUrl(baseUrl)}/providers`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+  return readJson<ProvidersResponse>(response);
+}
+
 export async function listGatewayModels(
   baseUrl: string,
 ): Promise<ModelsResponse> {
@@ -81,19 +93,67 @@ export async function runGatewayMission(
   baseUrl: string,
   sessionToken: string,
   request: MissionRequest,
+  options?: { signal?: AbortSignal },
 ): Promise<MissionResponse> {
-  const response = await fetch(`${normalizeBaseUrl(baseUrl)}/mission`, {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      "X-Maestro-Session": sessionToken,
-    },
-    body: JSON.stringify(request),
-    cache: "no-store",
-  });
-
-  return readJson<MissionResponse>(response);
+  // The native window must not keep displaying an infinite progress spinner.
+  // The Gateway also applies its own Ollama transport deadlines, so the UI
+  // deadline is a last-resort boundary, not a substitute for server control.
+  const controller = new AbortController();
+  const requestId = crypto.randomUUID().replace(/-/g, "");
+  const external = options?.signal;
+  let wasManualCancel = false;
+  const onExternalAbort = () => { wasManualCancel = true; controller.abort(); };
+  if (external?.aborted) onExternalAbort();
+  external?.addEventListener("abort", onExternalAbort, { once: true });
+  // Longer than the governed 300s maximum mission envelope, allowing one
+  // quality retry on a slow Intel Mac. Manual cancellation stays immediate.
+  // A bounded fallback remains necessary until event streaming reaches the UI.
+  const timer = window.setTimeout(() => controller.abort(), 330_000);
+  try {
+    const response = await fetch(`${normalizeBaseUrl(baseUrl)}/mission`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-Maestro-Session": sessionToken,
+      },
+      body: JSON.stringify({ ...request, request_id: requestId }),
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    return await readJson<MissionResponse>(response);
+  } catch (error) {
+    if (controller.signal.aborted) {
+      // Cancelling fetch alone DOES NOT cancel the Gateway's model call.
+      // The authenticated cancel request is independent of the aborted request.
+      try {
+        await fetch(`${normalizeBaseUrl(baseUrl)}/mission/cancel`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Maestro-Session": sessionToken,
+          },
+          body: JSON.stringify({ request_id: requestId }),
+          cache: "no-store",
+          signal: AbortSignal.timeout(3000),
+        });
+      } catch {
+        // The local Gateway may have stopped. Do not promise cancellation.
+      }
+      if (wasManualCancel) {
+        throw new Error("Demande d’annulation transmise. Vérifier l’état de la mission avant de recommencer.");
+      }
+      throw new Error(
+        "MAESTRO : aucune réponse après 330 secondes. " +
+        "La mission a dépassé son délai d'attente local. " +
+        "Vérifiez Ollama et choisissez un modèle moins coûteux dans SETTINGS.",
+      );
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timer);
+    external?.removeEventListener("abort", onExternalAbort);
+  }
 }
 
 export async function listConversations(

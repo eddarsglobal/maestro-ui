@@ -50,7 +50,9 @@ export function loadUiLanguage(): UiLanguage {
   if (stored && SUPPORTED.has(stored)) {
     return stored as UiLanguage;
   }
-  return detectUiLanguage();
+  // Explicit English default; other supported languages are user choices.
+  // Conversation input may still be in any of the eight languages.
+  return "en";
 }
 
 export function applyDocumentLanguage(language: UiLanguage): void {
@@ -60,6 +62,7 @@ export function applyDocumentLanguage(language: UiLanguage): void {
 }
 
 const en: Record<string, string> = {
+  stopMission: "Stop current mission",
   sovereignControlPlane: "SOVEREIGN CONTROL PLANE",
   newChat: "New chat",
   search: "Search",
@@ -148,6 +151,7 @@ const en: Record<string, string> = {
 };
 
 const fr: Record<string, string> = {
+  stopMission: "Arrêter la mission",
   ...en,
   sovereignControlPlane: "PLAN DE CONTRÔLE SOUVERAIN",
   newChat: "Nouvelle conversation",
@@ -230,6 +234,7 @@ const fr: Record<string, string> = {
 };
 
 const de: Record<string, string> = {
+  stopMission: "Aktuelle Mission stoppen",
   ...en,
   newChat: "Neuer Chat",
   search: "Suchen",
@@ -276,6 +281,7 @@ const de: Record<string, string> = {
 };
 
 const ar: Record<string, string> = {
+  stopMission: "إيقاف المهمة الحالية",
   ...en,
   newChat: "محادثة جديدة",
   search: "بحث",
@@ -327,6 +333,7 @@ const ar: Record<string, string> = {
 };
 
 const pt: Record<string, string> = {
+  stopMission: "Parar missão atual",
   ...en,
   newChat: "Nova conversa",
   search: "Pesquisar",
@@ -372,6 +379,7 @@ const pt: Record<string, string> = {
 };
 
 const es: Record<string, string> = {
+  stopMission: "Detener misión actual",
   ...en,
   newChat: "Nuevo chat",
   search: "Buscar",
@@ -417,6 +425,7 @@ const es: Record<string, string> = {
 };
 
 const hr: Record<string, string> = {
+  stopMission: "Zaustavi trenutni zadatak",
   ...en,
   sovereignControlPlane: "SUVERENA UPRAVLJAČKA RAVNINA",
   newChat: "Novi razgovor",
@@ -473,6 +482,7 @@ const hr: Record<string, string> = {
 };
 
 const it: Record<string, string> = {
+  stopMission: "Interrompi la missione",
   ...en,
   newChat: "Nuova chat",
   search: "Cerca",

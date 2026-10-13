@@ -15,7 +15,7 @@ export type GatewayHealth = {
   native_workspace_picker?: string;
 };
 
-export type LocalProvider = "ollama" | "lmstudio" | "llamacpp" | "custom";
+export type LocalProvider = string;
 
 export type LocalRuntimeSettings = {
   gatewayUrl: string;
@@ -29,18 +29,46 @@ export type GatewaySession = {
   mission_protocol: string;
 };
 
+export type ProviderInventoryEntry = {
+  id: string;
+  name: string;
+  url: string;
+  status: string;
+  models: string[];
+  installed?: boolean;
+  inference_supported: boolean;
+  selection_enabled: boolean;
+  reason?: string;
+};
+
+export type ProvidersResponse = {
+  providers: ProviderInventoryEntry[];
+};
+
 export type ModelsResponse = {
   provider: string;
   status: string;
   models: string[];
+  primary?: {
+    mode: "single_local_primary";
+    primary_resource_id: string | null;
+    epoch: number;
+    reason: string;
+    cloud_enabled: false;
+    primary_selected: boolean;
+    inference_ready: boolean;
+    cooling_down_models: number;
+  };
 };
 
 export type MissionRequest = {
+  request_id?: string;
   prompt: string;
   model?: string | null;
   max_tokens?: number;
   conversation_id?: string | null;
   workspace_id?: string | null;
+  ui_language?: string;
 };
 
 export type MissionResponse = {
