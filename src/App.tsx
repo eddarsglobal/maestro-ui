@@ -26,6 +26,7 @@ import {
 import { tc } from "./i18n-conversations";
 import { tw } from "./i18n-workspace";
 import { tch } from "./i18n-changes";
+import { isQualityContractFailureMessage } from "./services/gateway/qualityContractFailure";
 
 const CORE = "https://github.com/eddarsglobal/maestro";
 
@@ -55,7 +56,7 @@ type View = "chat" | "councils" | "help" | "settings";
 type ChatItem =
   | { id: string; role: "user"; text: string }
   | { id: string; role: "maestro"; text: string; mission: MissionResponse }
-  | { id: string; role: "error"; text: string };
+  | { id: string; role: "error"; kind: "quality_contract" | "gateway"; text: string };
 
 function routeFromHash(): View {
   const route = window.location.hash.replace(/^#\/?/, "");
@@ -64,7 +65,13 @@ function routeFromHash(): View {
     : "chat";
 }
 
-function shortResource(resourceId: string): string {
+function shortResource(
+  resourceId: string | null | undefined,
+): string {
+  if (!resourceId) {
+    return "MAESTRO Core · Deterministic";
+  }
+
   return resourceId.replace(/^[^:]+::/, "");
 }
 
@@ -649,7 +656,7 @@ export default function App() {
 
       setMessages((current) => [
         ...current,
-        { id: crypto.randomUUID(), role: "error", text: message },
+        { id: crypto.randomUUID(), role: "error", kind: isQualityContractFailureMessage(message) ? "quality_contract" : "gateway", text: message },
       ]);
     } finally {
       if (cancelMissionRef.current === cancellationController) {
@@ -1006,7 +1013,7 @@ export default function App() {
                       <div className="chatRow" key={message.id}>
                         <div className="chatAvatar errorAvatar"><X size={17}/></div>
                         <div className="chatBubble errorBubble">
-                          <span className="chatRole">{t(language, "gatewayError")}</span>
+                          <span className="chatRole">{t(language, message.kind === "quality_contract" ? "qualityFailure" : "gatewayError")}</span>
                           <p>{message.text}</p>
                         </div>
                       </div>

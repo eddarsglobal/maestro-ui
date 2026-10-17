@@ -77,7 +77,7 @@ export type MissionResponse = {
   mode: string;
   task_id: string;
   state: string;
-  resource_id: string;
+  resource_id: string | null;
   output: string;
   metrics: Record<string, unknown>;
   evidence_id: string;

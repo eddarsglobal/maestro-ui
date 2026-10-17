@@ -87,6 +87,7 @@ const en: Record<string, string> = {
   you: "YOU",
   maestro: "MAESTRO",
   gatewayError: "GATEWAY ERROR",
+  qualityFailure: "RESPONSE NOT COMPLIANT",
   ayDelivery: "AY {verdict} · DELIVERY",
   governedMission: "Governed mission in progress",
   askMaestro: "Ask MAESTRO...",
@@ -175,6 +176,7 @@ const fr: Record<string, string> = {
   coreSpecification: "Spécification du Core",
   you: "VOUS",
   gatewayError: "ERREUR GATEWAY",
+  qualityFailure: "RÉPONSE NON CONFORME",
   ayDelivery: "AY {verdict} · LIVRAISON",
   governedMission: "Mission gouvernée en cours",
   askMaestro: "Demander à MAESTRO...",
@@ -236,6 +238,7 @@ const fr: Record<string, string> = {
 const de: Record<string, string> = {
   stopMission: "Aktuelle Mission stoppen",
   ...en,
+  qualityFailure: "ANTWORT NICHT KONFORM",
   newChat: "Neuer Chat",
   search: "Suchen",
   recents: "ZULETZT",
@@ -283,6 +286,7 @@ const de: Record<string, string> = {
 const ar: Record<string, string> = {
   stopMission: "إيقاف المهمة الحالية",
   ...en,
+  qualityFailure: "الرد غير مطابق",
   newChat: "محادثة جديدة",
   search: "بحث",
   recents: "الأخيرة",
@@ -335,6 +339,7 @@ const ar: Record<string, string> = {
 const pt: Record<string, string> = {
   stopMission: "Parar missão atual",
   ...en,
+  qualityFailure: "RESPOSTA NÃO CONFORME",
   newChat: "Nova conversa",
   search: "Pesquisar",
   recents: "RECENTES",
@@ -381,6 +386,7 @@ const pt: Record<string, string> = {
 const es: Record<string, string> = {
   stopMission: "Detener misión actual",
   ...en,
+  qualityFailure: "RESPUESTA NO CONFORME",
   newChat: "Nuevo chat",
   search: "Buscar",
   recents: "RECIENTES",
@@ -446,6 +452,7 @@ const hr: Record<string, string> = {
   coreSpecification: "Specifikacija Corea",
   you: "VI",
   gatewayError: "GREŠKA GATEWAYA",
+  qualityFailure: "ODGOVOR NIJE SUKLADAN",
   ayDelivery: "AY {verdict} · ISPORUKA",
   governedMission: "Upravljana misija je u tijeku",
   askMaestro: "Pitaj MAESTRO...",
@@ -484,6 +491,7 @@ const hr: Record<string, string> = {
 const it: Record<string, string> = {
   stopMission: "Interrompi la missione",
   ...en,
+  qualityFailure: "RISPOSTA NON CONFORME",
   newChat: "Nuova chat",
   search: "Cerca",
   recents: "RECENTI",
