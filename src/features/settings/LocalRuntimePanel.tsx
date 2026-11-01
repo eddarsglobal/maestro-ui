@@ -1,12 +1,10 @@
 import { useEffect, useState } from "react";
-import { Check, ChevronRight, Languages, PlugZap, ShieldCheck } from "lucide-react";
-import { checkGateway, listGatewayProviders } from "../../services/gateway/client";
+import { Languages, PlugZap, ShieldCheck } from "lucide-react";
+import { checkGateway } from "../../services/gateway/client";
 import {
   RUNTIME_STORAGE_KEY,
   loadLocalRuntimeSettings,
   type GatewayStatus,
-  type LocalProvider,
-  type ProviderInventoryEntry,
   type LocalRuntimeSettings,
 } from "../../types/gateway";
 import {
@@ -28,30 +26,6 @@ export default function LocalRuntimePanel({
     useState<LocalRuntimeSettings>(loadLocalRuntimeSettings);
   const [status, setStatus] = useState<GatewayStatus>("offline");
   const [detail, setDetail] = useState(t(language, "noGateway"));
-  const [providers, setProviders] = useState<ProviderInventoryEntry[]>([]);
-  const [inventoryError, setInventoryError] = useState(false);
-
-  // Gateway is the source of truth; no hard-coded UI inventory.
-  useEffect(() => {
-    let active = true;
-    const refresh = async () => {
-      try {
-        const inventory = await listGatewayProviders(settings.gatewayUrl);
-        if (active) {
-          setProviders(Array.isArray(inventory.providers) ? inventory.providers : []);
-          setInventoryError(false);
-        }
-      } catch {
-        if (active) {
-          setProviders([]);
-          setInventoryError(true);
-        }
-      }
-    };
-    void refresh();
-    const timer = window.setInterval(() => void refresh(), 15000);
-    return () => { active = false; window.clearInterval(timer); };
-  }, [settings.gatewayUrl]);
 
   useEffect(() => {
     localStorage.setItem(RUNTIME_STORAGE_KEY, JSON.stringify(settings));
@@ -64,23 +38,6 @@ export default function LocalRuntimePanel({
 
   const visibleDetail = status === "offline" ? t(language, "noGateway") : detail;
 
-  const runtimeStrings: Record<UiLanguage, {
-    ready: string; discovered: string; unavailable: string;
-    noModels: string; refreshing: string; observedUrl: string;
-    boundary: string; modelCount: string;
-  }> = {
-    en: { ready: "Ready for governed missions", discovered: "Detected, mission adapter not connected", unavailable: "Offline", noModels: "No models", refreshing: "Gateway inventory unavailable", observedUrl: "Detected endpoint (read-only)", boundary: "Only explicitly integrated runtimes can execute missions.", modelCount: "models" },
-    fr: { ready: "Prêt pour les missions gouvernées", discovered: "Détecté, adaptateur de mission non intégré", unavailable: "Hors ligne", noModels: "Aucun modèle", refreshing: "Inventaire Gateway indisponible", observedUrl: "Endpoint détecté (lecture seule)", boundary: "Seuls les moteurs intégrés explicitement peuvent exécuter des missions.", modelCount: "modèles" },
-    de: { ready: "Bereit für geregelte Missionen", discovered: "Erkannt, Missionsadapter nicht verbunden", unavailable: "Offline", noModels: "Keine Modelle", refreshing: "Gateway-Inventar nicht verfügbar", observedUrl: "Erkannter Endpunkt (nur Lesen)", boundary: "Nur explizit integrierte Laufzeiten können Missionen ausführen.", modelCount: "Modelle" },
-    ar: { ready: "جاهز للمهام الخاضعة للحوكمة", discovered: "تم اكتشافه لكن محول التنفيذ غير متصل", unavailable: "غير متصل", noModels: "لا توجد نماذج", refreshing: "قائمة البوابة غير متاحة", observedUrl: "نقطة اتصال مكتشفة (قراءة فقط)", boundary: "لا يمكن تنفيذ المهام إلا عبر المحركات المدمجة صراحةً.", modelCount: "نماذج" },
-    pt: { ready: "Pronto para missões governadas", discovered: "Detetado, adaptador de missão não integrado", unavailable: "Offline", noModels: "Sem modelos", refreshing: "Inventário Gateway indisponível", observedUrl: "Endpoint detetado (só leitura)", boundary: "Só os motores integrados podem executar missões.", modelCount: "modelos" },
-    es: { ready: "Listo para misiones gobernadas", discovered: "Detectado, adaptador de misión no conectado", unavailable: "Sin conexión", noModels: "Sin modelos", refreshing: "Inventario Gateway no disponible", observedUrl: "Endpoint detectado (solo lectura)", boundary: "Solo los motores integrados pueden ejecutar misiones.", modelCount: "modelos" },
-    hr: { ready: "Spremno za upravljane zadatke", discovered: "Otkriveno, adapter nije povezan", unavailable: "Izvan mreže", noModels: "Nema modela", refreshing: "Gateway popis nije dostupan", observedUrl: "Otkrivena adresa (samo čitanje)", boundary: "Samo izričito integrirani sustavi mogu izvršavati zadatke.", modelCount: "modela" },
-    it: { ready: "Pronto per missioni governate", discovered: "Rilevato, adattatore missioni non collegato", unavailable: "Offline", noModels: "Nessun modello", refreshing: "Inventario Gateway non disponibile", observedUrl: "Endpoint rilevato (sola lettura)", boundary: "Solo i motori integrati possono eseguire missioni.", modelCount: "modelli" },
-  };
-  const labels = runtimeStrings[language];
-  const selectedProvider = providers.find((item) => item.id === settings.provider);
-
   const testConnection = async () => {
     setStatus("checking");
     setDetail(t(language, "checkingGateway"));
@@ -91,7 +48,6 @@ export default function LocalRuntimePanel({
 
       const parts = [
         health.version ? `Core v${health.version}` : null,
-        health.councils ? `${health.councils} Councils` : null,
         health.mission_protocol || null,
       ].filter(Boolean);
 
@@ -115,7 +71,6 @@ export default function LocalRuntimePanel({
         setStatus("online");
         const summary = [
           health.version ? `Core v${health.version}` : null,
-          health.councils ? `${health.councils} Councils` : null,
           health.mission_protocol || null,
         ].filter(Boolean);
         setDetail(summary.length ? summary.join(" · ") : t(language, "gatewayReachable"));
@@ -129,16 +84,6 @@ export default function LocalRuntimePanel({
     const timer = window.setInterval(() => void refresh(), 15000);
     return () => { active = false; window.clearInterval(timer); };
   }, [settings.gatewayUrl, language]);
-
-  const selectProvider = (provider: LocalProvider) => {
-    const selected = providers.find((item) => item.id === provider);
-    if (!selected?.selection_enabled) return;
-    setSettings({
-      ...settings,
-      provider,
-      providerUrl: selected.url,
-    });
-  };
 
   return (
     <div className="runtimeSettings">
@@ -214,56 +159,12 @@ export default function LocalRuntimePanel({
           <span><ShieldCheck size={18} /></span>
           <div>
             <b>{t(language, "localIntelligence")}</b>
-            <small>{t(language, "preferredRuntime")}</small>
+            <small>{t(language, "gatewayReachable")}</small>
           </div>
         </div>
-
-        <div className="providerGrid">
-          {providers.map((provider) => (
-            <button
-              key={provider.id}
-              type="button"
-              disabled={!provider.selection_enabled}
-              title={provider.reason || undefined}
-              className={
-                "providerCard " +
-                (settings.provider === provider.id ? "selected" : "")
-              }
-              onClick={() => selectProvider(provider.id)}
-            >
-              <span className="providerTop">
-                <b>{provider.name}</b>
-                {settings.provider === provider.id && provider.selection_enabled ? (
-                  <Check size={15} />
-                ) : (
-                  <ChevronRight size={15} />
-                )}
-              </span>
-              <small>{provider.status !== "online" ? labels.unavailable :
-                provider.selection_enabled ? labels.ready : labels.discovered}</small>
-              <small>{provider.models.length
-                ? `${provider.models.length} ${labels.modelCount}: ${provider.models.slice(0, 3).join(", ")}${provider.models.length > 3 ? "…" : ""}`
-                : labels.noModels}</small>
-            </button>
-          ))}
-        </div>
-        {inventoryError && (
-          <div className="gatewayResult offline">{labels.refreshing}</div>
-        )}
-
-        <label className="runtimeField">
-          <span>{labels.observedUrl}</span>
-          <input
-            value={selectedProvider?.url || ""}
-            readOnly
-            spellCheck={false}
-            title={labels.boundary}
-          />
-        </label>
-
-        <div className="localBoundary">
-          <ShieldCheck size={15} />
-          <span>{labels.boundary} {t(language, "providerBoundary")}</span>
+        <div className={`gatewayResult ${status}`}>
+          <i />
+          {visibleDetail}
         </div>
       </div>
     </div>

@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Archive, ArrowUp, BookOpen, Bot, CheckCircle2, ChevronDown, CircleAlert,
-  ExternalLink, FileText, FolderOpen, GitBranch, HelpCircle, LoaderCircle, Menu,
-  MessageSquarePlus, MoreHorizontal, Moon, Pencil, Pin, Search,
-  Settings, Share2, ShieldCheck, Sun, Trash2, Users, X,
+  Archive, ArrowUp, BookOpen, Bot, CheckCircle2, ChevronDown,
+  ExternalLink, FileText, FolderOpen, GitBranch, HelpCircle, Menu,
+  MessageSquarePlus, MoreHorizontal, Moon, Pencil, Pin, Search, Copy,
+  Settings, Share2, ShieldCheck, Sun, Trash2, X,
 } from "lucide-react";
 import "./styles/maestro.css";
 import LocalRuntimePanel from "./features/settings/LocalRuntimePanel";
 import {
   applyChangeProposal, approveChangeProposal, checkGateway, chooseWorkspace, deleteConversation,
-  getConversation, listChangeProposals, listConversations, listGatewayModels,
+  getConversation, listChangeProposals, listConversations,
   listWorkspaces, openGatewaySession, rejectChangeProposal, runGatewayMission,
   updateConversation,
 } from "./services/gateway/client";
@@ -30,49 +30,19 @@ import { isQualityContractFailureMessage } from "./services/gateway/qualityContr
 
 const CORE = "https://github.com/eddarsglobal/maestro";
 
-const councils = [
-  ["EX","Executive","Direction, routing & mission lifecycle"],
-  ["AY","Acceptance","Acceptance contracts & final validation"],
-  ["IT","Technology","Engineering & implementation"],
-  ["JR","Legal","Legal & compliance interpretation"],
-  ["MK","Market","Market & marketing strategy"],
-  ["CM","Creation & Media","Content, communication & media"],
-  ["OP","Operations","Operations, releases & recovery"],
-  ["FN","Finance","Financial analysis & constraints"],
-  ["AD","Administration","Administrative & jurisdictional processes"],
-  ["DA","Design","Design quality & experience"],
-  ["PM","Product","Product scope & management"],
-  ["CS","Customer Success","User success & usability"],
-  ["DT","Data & Telemetry","Measurement & data truth"],
-  ["SC","Security","Security architecture & independent audit"],
-  ["TX","Traceability","Durable state & traceability"],
-  ["PR","Performance","Performance & real-world evidence"],
-  ["AI","Artificial Intelligence","AI architecture & model policy"],
-  ["RX","Research","External research & evidence"],
-];
 
-type View = "chat" | "councils" | "help" | "settings";
+type View = "chat" | "help" | "settings";
 
 type ChatItem =
   | { id: string; role: "user"; text: string }
-  | { id: string; role: "maestro"; text: string; mission: MissionResponse }
+  | { id: string; role: "maestro"; text: string; mission: MissionResponse; elapsedSeconds?: number }
   | { id: string; role: "error"; kind: "quality_contract" | "gateway"; text: string };
 
 function routeFromHash(): View {
   const route = window.location.hash.replace(/^#\/?/, "");
-  return route === "councils" || route === "help" || route === "settings"
+  return route === "help" || route === "settings"
     ? route
     : "chat";
-}
-
-function shortResource(
-  resourceId: string | null | undefined,
-): string {
-  if (!resourceId) {
-    return "MAESTRO Core · Deterministic";
-  }
-
-  return resourceId.replace(/^[^:]+::/, "");
 }
 
 function recordToChat(record: ConversationRecord): ChatItem[] {
@@ -146,6 +116,27 @@ function conversationText(record: ConversationRecord): string {
     .join("\n\n");
 }
 
+const uiStrings: Record<UiLanguage, {
+  pending: string; copy: string; copied: string; copyFailed: string;
+  seconds: string; historyTitle: string; historyDetail: string;
+  archiveAll: string; deleteAll: string; archiveConfirm: string;
+  deleteConfirm: string; deletionPrompt: string; confirmWord: string;
+  noConversations: string; bulkFailed: string;
+}> = {
+  en: { pending: "Responding", copy: "Copy message", copied: "Copied", copyFailed: "Unable to copy this message.", seconds: "s", historyTitle: "Conversation history", historyDetail: "Only chats are affected. Mission records, evidence, workspaces and logs stay untouched.", archiveAll: "Archive all conversations", deleteAll: "Delete all conversations", archiveConfirm: "Archive {n} conversations? You can still find them using search.", deleteConfirm: "Permanently delete {n} conversations, including archived ones? This cannot be undone.", deletionPrompt: "Type DELETE to confirm removal of conversation history:", confirmWord: "DELETE", noConversations: "No conversations to process.", bulkFailed: "The operation stopped. Completed: {done}/{total}." },
+  fr: { pending: "Réponse en cours", copy: "Copier le message", copied: "Copié", copyFailed: "Impossible de copier ce message.", seconds: "s", historyTitle: "Historique des conversations", historyDetail: "Concerne uniquement les chats, sans toucher aux missions, preuves, espaces de travail ou journaux.", archiveAll: "Archiver toutes les conversations", deleteAll: "Effacer toutes les conversations", archiveConfirm: "Archiver {n} conversations ? Elles resteront accessibles via la recherche.", deleteConfirm: "Supprimer définitivement {n} conversations, y compris les archivées ? Cette opération est irréversible.", deletionPrompt: "Saisir EFFACER pour confirmer la suppression de l’historique des conversations :", confirmWord: "EFFACER", noConversations: "Aucune conversation à traiter.", bulkFailed: "Opération interrompue. Traité : {done}/{total}." },
+  de: { pending: "Antwort wird erstellt", copy: "Nachricht kopieren", copied: "Kopiert", copyFailed: "Kopieren nicht möglich.", seconds: "s", historyTitle: "Unterhaltungsverlauf", historyDetail: "Nur Chats sind betroffen. Missionsnachweise, Arbeitsbereiche und Logs bleiben erhalten.", archiveAll: "Alle Unterhaltungen archivieren", deleteAll: "Alle Unterhaltungen löschen", archiveConfirm: "{n} Unterhaltungen archivieren? Sie bleiben in der Suche auffindbar.", deleteConfirm: "{n} Unterhaltungen samt Archiv endgültig löschen? Nicht rückgängig zu machen.", deletionPrompt: "Zum Bestätigen LÖSCHEN eingeben:", confirmWord: "LÖSCHEN", noConversations: "Keine Unterhaltungen vorhanden.", bulkFailed: "Vorgang unterbrochen. Fertig: {done}/{total}." },
+  ar: { pending: "جارٍ إعداد الرد", copy: "نسخ الرسالة", copied: "تم النسخ", copyFailed: "تعذر النسخ.", seconds: "ث", historyTitle: "سجل المحادثات", historyDetail: "المحادثات فقط؛ لا تتأثر سجلات المهام أو الأدلة أو الملفات.", archiveAll: "أرشفة جميع المحادثات", deleteAll: "حذف جميع المحادثات", archiveConfirm: "أرشفة {n} محادثات؟ يمكن البحث عنها لاحقاً.", deleteConfirm: "حذف {n} محادثات نهائياً بما فيها المؤرشفة؟ لا يمكن التراجع.", deletionPrompt: "اكتب حذف للتأكيد:", confirmWord: "حذف", noConversations: "لا توجد محادثات.", bulkFailed: "توقفت العملية. المنجز: {done}/{total}." },
+  pt: { pending: "A preparar resposta", copy: "Copiar mensagem", copied: "Copiado", copyFailed: "Não foi possível copiar.", seconds: "s", historyTitle: "Histórico de conversas", historyDetail: "Só as conversas são afetadas; missões, evidências e registos mantêm-se.", archiveAll: "Arquivar todas as conversas", deleteAll: "Apagar todas as conversas", archiveConfirm: "Arquivar {n} conversas? Continuam pesquisáveis.", deleteConfirm: "Eliminar permanentemente {n} conversas, incluindo as arquivadas? Irreversível.", deletionPrompt: "Escreva APAGAR para confirmar:", confirmWord: "APAGAR", noConversations: "Sem conversas.", bulkFailed: "Operação interrompida. Concluídas: {done}/{total}." },
+  es: { pending: "Preparando respuesta", copy: "Copiar mensaje", copied: "Copiado", copyFailed: "No se pudo copiar.", seconds: "s", historyTitle: "Historial de conversaciones", historyDetail: "Solo se afectan los chats; se conservan misiones, pruebas y registros.", archiveAll: "Archivar todas las conversaciones", deleteAll: "Eliminar todas las conversaciones", archiveConfirm: "¿Archivar {n} conversaciones? Seguirán disponibles mediante búsqueda.", deleteConfirm: "¿Eliminar permanentemente {n} conversaciones, incluidas las archivadas? No se puede deshacer.", deletionPrompt: "Escribe ELIMINAR para confirmar:", confirmWord: "ELIMINAR", noConversations: "No hay conversaciones.", bulkFailed: "Operación detenida. Completadas: {done}/{total}." },
+  hr: { pending: "Pripremam odgovor", copy: "Kopiraj poruku", copied: "Kopirano", copyFailed: "Kopiranje nije uspjelo.", seconds: "s", historyTitle: "Povijest razgovora", historyDetail: "Samo razgovori; misije, dokazi i zapisnici ostaju netaknuti.", archiveAll: "Arhiviraj sve razgovore", deleteAll: "Izbriši sve razgovore", archiveConfirm: "Arhivirati {n} razgovora? Ostaju dostupni putem pretrage.", deleteConfirm: "Trajno izbrisati {n} razgovora, uključujući arhivirane? Nema povrata.", deletionPrompt: "Unesite IZBRIŠI za potvrdu:", confirmWord: "IZBRIŠI", noConversations: "Nema razgovora.", bulkFailed: "Operacija prekinuta. Dovršeno: {done}/{total}." },
+  it: { pending: "Risposta in corso", copy: "Copia messaggio", copied: "Copiato", copyFailed: "Impossibile copiare.", seconds: "s", historyTitle: "Cronologia conversazioni", historyDetail: "Solo chat: missioni, prove e registri restano invariati.", archiveAll: "Archivia tutte le conversazioni", deleteAll: "Elimina tutte le conversazioni", archiveConfirm: "Archiviare {n} conversazioni? Rimangono ricercabili.", deleteConfirm: "Eliminare definitivamente {n} conversazioni, comprese le archiviate? Irreversibile.", deletionPrompt: "Scrivi ELIMINA per confermare:", confirmWord: "ELIMINA", noConversations: "Nessuna conversazione.", bulkFailed: "Operazione interrotta. Completate: {done}/{total}." },
+};
+
+function fillCount(template: string, n: number): string {
+  return template.replace("{n}", String(n));
+}
+
 export default function App() {
   const [view, setView] = useState<View>(routeFromHash());
   const [theme, setThemeState] = useState<"dark"|"light">(
@@ -162,15 +153,12 @@ export default function App() {
     useState<GatewayStatus>("checking");
   const [gatewayHealth, setGatewayHealth] =
     useState<GatewayHealth | null>(null);
-  const [models, setModels] = useState<string[]>([]);
-  const [selectedModel, setSelectedModel] = useState("AUTO");
-  const acceptModelInventory = useCallback((nextModels: string[]) => {
-    setModels(nextModels);
-    setSelectedModel((current) =>
-      current !== "AUTO" && !nextModels.includes(current) ? "AUTO" : current,
-    );
-  }, []);
   const [running, setRunning] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState("");
+  const startMsRef = useRef<number | null>(null);
   const cancelMissionRef = useRef<AbortController | null>(null);
 
   const [conversations, setConversations] =
@@ -196,6 +184,26 @@ export default function App() {
   const [changeBusy, setChangeBusy] = useState(false);
 
   const sessionTokenRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!running || startMsRef.current === null) return;
+    const update = () => setElapsedSeconds(
+      Math.floor((performance.now() - startMsRef.current!) / 1000),
+    );
+    update();
+    const timer = window.setInterval(update, 250);
+    return () => window.clearInterval(timer);
+  }, [running]);
+
+  const copyChatMessage = async (id: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(id);
+      window.setTimeout(() => setCopiedId(current => current === id ? null : current), 1600);
+    } catch {
+      window.alert(uiStrings[language].copyFailed);
+    }
+  };
 
   useEffect(() => {
     applyDocumentLanguage(language);
@@ -476,13 +484,6 @@ export default function App() {
         setGatewayStatus("online");
 
         try {
-          const modelData = await listGatewayModels(runtimeSettings.gatewayUrl);
-          if (!cancelled) acceptModelInventory(modelData.models || []);
-        } catch {
-          if (!cancelled) acceptModelInventory([]);
-        }
-
-        try {
           const rows = await withFreshSession((token) =>
             listConversations(runtimeSettings.gatewayUrl, token),
           );
@@ -494,7 +495,6 @@ export default function App() {
         if (cancelled) return;
         setGatewayHealth(null);
         setGatewayStatus("offline");
-        acceptModelInventory([]);
         setConversations([]);
         sessionTokenRef.current = null;
       }
@@ -502,23 +502,7 @@ export default function App() {
 
     void inspectRuntime();
     return () => { cancelled = true; };
-  }, [runtimeSettings.gatewayUrl, withFreshSession, acceptModelInventory]);
-
-  // Models are discovered from the live Gateway, never pre-listed in UI code.
-  useEffect(() => {
-    if (gatewayStatus !== "online") return;
-    let active = true;
-    const refresh = async () => {
-      try {
-        const result = await listGatewayModels(runtimeSettings.gatewayUrl);
-        if (active) acceptModelInventory(Array.isArray(result.models) ? result.models : []);
-      } catch {
-        if (active) acceptModelInventory([]);
-      }
-    };
-    const timer = window.setInterval(() => void refresh(), 15000);
-    return () => { active = false; window.clearInterval(timer); };
-  }, [gatewayStatus, runtimeSettings.gatewayUrl, acceptModelInventory]);
+  }, [runtimeSettings.gatewayUrl, withFreshSession]);
 
   useEffect(() => {
     if (gatewayStatus !== "online") return;
@@ -598,6 +582,7 @@ export default function App() {
     return () => window.clearTimeout(timer);
   }, [searchOpen, searchQuery, runtimeSettings.gatewayUrl, withFreshSession]);
 
+
   const startNewChat = () => {
     setActiveConversationId(null);
     setMessages([]);
@@ -615,6 +600,8 @@ export default function App() {
       { id: crypto.randomUUID(), role: "user", text },
     ]);
     setPrompt("");
+    startMsRef.current = performance.now();
+    setElapsedSeconds(0);
     setRunning(true);
     const cancellationController = new AbortController();
     cancelMissionRef.current = cancellationController;
@@ -629,7 +616,7 @@ export default function App() {
       const mission = await withFreshSession((token) =>
         runGatewayMission(runtimeSettings.gatewayUrl, token, {
           prompt: text,
-          model: selectedModel === "AUTO" ? null : selectedModel,
+          model: null,
           max_tokens: 512,
           conversation_id: activeConversationId,
           workspace_id: activeWorkspaceId,
@@ -646,6 +633,7 @@ export default function App() {
           role: "maestro",
           text: mission.output,
           mission,
+          elapsedSeconds: startMsRef.current === null ? undefined : Math.max(0.1, (performance.now() - startMsRef.current) / 1000),
         },
       ]);
 
@@ -663,6 +651,7 @@ export default function App() {
         cancelMissionRef.current = null;
       }
       setRunning(false);
+      startMsRef.current = null;
     }
   };
 
@@ -756,16 +745,54 @@ export default function App() {
     window.alert(tc(language, "copied"));
   };
 
+  // Scoped to ConversationStore via existing authenticated, per-conversation APIs.
+  // No bulk delete endpoint, no filesystem history wipes, no bypass of user approval.
+  const manageConversationHistory = async (action: "archive" | "delete") => {
+    if (running || bulkBusy || gatewayStatus !== "online") return;
+    const strings = uiStrings[language];
+    try {
+      const all = await withFreshSession(token =>
+        listConversations(runtimeSettings.gatewayUrl, token, { includeArchived: true }),
+      );
+      const rows = action === "archive" ? all.filter(row => !row.archived) : all;
+      if (!rows.length) {
+        window.alert(strings.noConversations);
+        return;
+      }
+      const message = fillCount(action === "archive" ? strings.archiveConfirm : strings.deleteConfirm, rows.length);
+      if (!window.confirm(message)) return;
+      if (action === "delete" && window.prompt(strings.deletionPrompt) !== strings.confirmWord) return;
+
+      setBulkBusy(true);
+      let done = 0;
+      try {
+        for (const row of rows) {
+          await withFreshSession(token => action === "archive"
+            ? updateConversation(runtimeSettings.gatewayUrl, token, row.id, { archived: true }).then(() => undefined)
+            : deleteConversation(runtimeSettings.gatewayUrl, token, row.id));
+          done += 1;
+          setBulkProgress(`${done}/${rows.length}`);
+        }
+        setActiveConversationId(null);
+        setMessages([]);
+      } catch (error) {
+        window.alert(strings.bulkFailed.replace("{done}", String(done)).replace("{total}", String(rows.length)) +
+          " " + (error instanceof Error ? error.message : ""));
+      } finally {
+        await refreshConversations();
+        setBulkProgress("");
+        setBulkBusy(false);
+      }
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : strings.bulkFailed);
+    }
+  };
+
   const featureResults = [
     {
       key: "new-chat",
       label: t(language, "newChat"),
       action: startNewChat,
-    },
-    {
-      key: "councils",
-      label: t(language, "councils"),
-      action: () => go("councils"),
     },
     {
       key: "settings",
@@ -928,9 +955,6 @@ export default function App() {
         </div>
 
         <nav>
-          <button className={view==="councils"?"active":""} onClick={() => go("councils")}>
-            <Users size={17}/> {t(language, "councils")} <em>18</em>
-          </button>
           <button className={view==="help"?"active":""} onClick={() => go("help")}>
             <HelpCircle size={17}/> {t(language, "help")}
           </button>
@@ -940,6 +964,9 @@ export default function App() {
           <button className={view==="settings"?"active":""} onClick={() => go("settings")}>
             <Settings size={17}/> {t(language, "settings")}
           </button>
+          <a className="maestroAttribution" href="https://github.com/eddarsglobal" target="_blank" rel="noopener noreferrer">
+            by EddarsGlobal <ExternalLink size={12}/>
+          </a>
         </nav>
       </aside>
 
@@ -979,6 +1006,7 @@ export default function App() {
 
         {view==="chat" && (
           <section className="chat">
+
             {messages.length===0 ? (
               <div className="hero">
                 <span className="heroLogo">M</span>
@@ -986,9 +1014,6 @@ export default function App() {
                 <h1>{t(language, "heroTitle")}</h1>
                 <p>{t(language, "heroText")}</p>
                 <div className="actions">
-                  <button onClick={() => go("councils")}>
-                    <Users size={16}/> {t(language, "exploreCouncils")}
-                  </button>
                   <a href={CORE + "/blob/main/README.md"} target="_blank" rel="noreferrer">
                     <BookOpen size={16}/> {t(language, "coreSpecification")}
                   </a>
@@ -1001,7 +1026,12 @@ export default function App() {
                     return (
                       <div className="chatRow chatRowUser" key={message.id}>
                         <div className="chatBubble userBubble">
-                          <span className="chatRole">{t(language, "you")}</span>
+                          <div className="maestroMessageTop"><span className="chatRole">{t(language, "you")}</span>
+                            <button className="maestroCopyButton" type="button" title={uiStrings[language].copy}
+                              aria-label={uiStrings[language].copy} onClick={() => void copyChatMessage(message.id, message.text)}>
+                              {copiedId === message.id ? <span>{uiStrings[language].copied}</span> : <Copy size={15}/>}
+                            </button>
+                          </div>
                           <p>{message.text}</p>
                         </div>
                       </div>
@@ -1026,68 +1056,14 @@ export default function App() {
                       <div className="chatBubble maestroBubble">
                         <div className="answerHeader">
                           <span className="chatRole">{t(language, "maestro")}</span>
-
-                          <div className="answerTools">
-                            <span className="verifiedChip">
-                              <CheckCircle2 size={13}/>
-                              {t(language, "ayDelivery", {
-                                verdict: message.mission.ay_verdict,
-                              })}
-                            </span>
-
-                            <details className="missionInfo">
-                              <summary
-                                title={t(language, "missionDetails")}
-                                aria-label={t(language, "missionDetails")}
-                              >
-                                <CircleAlert size={16}/>
-                              </summary>
-
-                              <div className="missionInfoPanel">
-                                <div className="missionStages">
-                                  {message.mission.stages.map((stage) => (
-                                    <span key={stage}>{stage}</span>
-                                  ))}
-                                </div>
-
-                                <div className="missionMetaGrid">
-                                  <div><span>{t(language,"mode")}</span><b>{message.mission.mode}</b></div>
-                                  <div><span>{t(language,"model")}</span><b>{shortResource(message.mission.resource_id)}</b></div>
-                                  {message.mission.workspace_label && (
-                                    <div>
-                                      <span>{tw(language,"workspace")}</span>
-                                      <b>{message.mission.workspace_label}</b>
-                                    </div>
-                                  )}
-                                  {message.mission.tool_calls && (
-                                    <div>
-                                      <span>{tw(language,"tools")}</span>
-                                      <b>{message.mission.tool_calls.length}</b>
-                                    </div>
-                                  )}
-                                  <div><span>{t(language,"task")}</span><b>{message.mission.task_id}</b></div>
-                                  <div><span>{t(language,"evidence")}</span><b>{message.mission.evidence_id}</b></div>
-                                  <div>
-                                    <span>{t(language,"tx")}</span>
-                                    <b>{message.mission.tx_committed
-                                      ? t(language,"committed")
-                                      : t(language,"notCommitted")}</b>
-                                  </div>
-                                  <div>
-                                    <span>{t(language,"latency")}</span>
-                                    <b>{typeof message.mission.metrics.wall_ms==="number" || typeof message.mission.metrics.total_ms==="number"
-                                      ? `${(Number(typeof message.mission.metrics.wall_ms === "number" ? message.mission.metrics.wall_ms : message.mission.metrics.total_ms)/1000).toFixed(1)}s`
-                                      : "—"}</b>
-                                  </div>
-                                  <div>
-                                    <span>{t(language,"truthScope")}</span>
-                                    <b>{message.mission.semantic_truth_verified
-                                      ? t(language,"semanticVerified")
-                                      : t(language,"deliveryOnly")}</b>
-                                  </div>
-                                </div>
-                              </div>
-                            </details>
+                          <div className="maestroAnswerActions">
+                            {message.elapsedSeconds !== undefined && <span className="maestroResponseTime" title={uiStrings[language].seconds}>
+                              {message.elapsedSeconds.toFixed(1)} {uiStrings[language].seconds}
+                            </span>}
+                            <button className="maestroCopyButton" type="button" title={uiStrings[language].copy}
+                              aria-label={uiStrings[language].copy} onClick={() => void copyChatMessage(message.id, message.text)}>
+                              {copiedId === message.id ? <span>{uiStrings[language].copied}</span> : <Copy size={15}/>}
+                            </button>
                           </div>
                         </div>
 
@@ -1099,14 +1075,17 @@ export default function App() {
 
                 {running && (
                   <div className="chatRow">
-                    <div className="chatAvatar maestroAvatar">
-                      <LoaderCircle className="spin" size={17}/>
-                    </div>
-                    <div className="chatBubble missionRunning">
-                      <span className="chatRole">MAESTRO</span>
-                      <div className="runningLine">
-                        <LoaderCircle className="spin" size={15}/>
-                        {t(language, "governedMission")}
+                    <div className="chatAvatar maestroAvatar maestroActiveAvatar" aria-hidden="true"><Bot size={17}/></div>
+                    <div className="chatBubble missionRunning maestroProgress" role="status" aria-live="off">
+                      <div className="maestroMessageTop">
+                        <span className="chatRole">MAESTRO</span>
+                        <span className="maestroElapsed" aria-label={`${elapsedSeconds} ${uiStrings[language].seconds}`}>
+                          {elapsedSeconds} {uiStrings[language].seconds}
+                        </span>
+                      </div>
+                      <div className="maestroProgressLine">
+                        <span>{uiStrings[language].pending}</span>
+                        <span className="maestroActivityDots" aria-hidden="true"><i/><i/><i/></span>
                       </div>
                     </div>
                   </div>
@@ -1235,24 +1214,6 @@ export default function App() {
                                     </div>
                                   )}
 
-                  <div className="composerControls">
-                                                        <select
-                                                          value={selectedModel}
-                                                          onChange={(event) => setSelectedModel(event.target.value)}
-                                                          disabled={running || gatewayStatus!=="online"}
-                                                        >
-                                                          <option value="AUTO">{t(language,"autoModel")}</option>
-                                                          {models.map((model) => (
-                                                            <option value={model} key={model}>{model}</option>
-                                                          ))}
-                                                        </select>
-
-                                                        <span>
-                                                          {gatewayStatus==="online"
-                                                            ? t(language,"localModels",{count:models.length})
-                                                            : t(language,"gatewayNotConnected")}
-                                                        </span>
-                                                      </div>
                 </div>
 
                 <div className="composer">
@@ -1304,32 +1265,6 @@ export default function App() {
           </section>
         )}
 
-        {view==="councils" && (
-          <section className="page">
-            <small>{t(language,"governedDomains")}</small>
-            <h2>{t(language,"genesisCouncils")}</h2>
-            <p>{t(language,"councilsIntro")}</p>
-            <div className="grid">
-              {councils.map(([code,name,domain]) => (
-                <a
-                  key={code}
-                  className="council"
-                  href={`${CORE}/blob/main/blueprints/Council-${code.toLowerCase()}.md`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <strong>{code}</strong>
-                  <span><b>{name}</b><small>{domain}</small></span>
-                  <ExternalLink size={14}/>
-                </a>
-              ))}
-            </div>
-            <div className="principle">
-              MAESTRO COMMANDS MODELS. MODELS DO NOT COMMAND MAESTRO.
-            </div>
-          </section>
-        )}
-
         {view==="help" && (
           <section className="page">
             <small>{t(language,"documentation")}</small>
@@ -1338,10 +1273,6 @@ export default function App() {
               <a href={CORE+"#quick-installation"} target="_blank" rel="noreferrer">
                 <BookOpen/><b>{t(language,"gettingStarted")}</b>
                 <span>{t(language,"installValidate")}</span>
-              </a>
-              <a href={CORE+"/blob/main/docs/COUNCILS.md"} target="_blank" rel="noreferrer">
-                <Users/><b>{t(language,"councils")}</b>
-                <span>{t(language,"explore18")}</span>
               </a>
               <a href={CORE+"/blob/main/docs/LOCAL_AI.md"} target="_blank" rel="noreferrer">
                 <ShieldCheck/><b>{t(language,"localAI")}</b>
@@ -1386,6 +1317,17 @@ export default function App() {
               language={language}
               onLanguageChange={setLanguage}
             />
+            <section className="maestroHistorySettings" aria-label={uiStrings[language].historyTitle}>
+              <h3>{uiStrings[language].historyTitle}</h3>
+              <p>{uiStrings[language].historyDetail}</p>
+              <div className="maestroHistoryActions">
+                <button type="button" disabled={bulkBusy || running || gatewayStatus !== "online"}
+                  onClick={() => void manageConversationHistory("archive")}>{<Archive size={16}/>} {uiStrings[language].archiveAll}</button>
+                <button type="button" className="maestroDangerAction" disabled={bulkBusy || running || gatewayStatus !== "online"}
+                  onClick={() => void manageConversationHistory("delete")}>{<Trash2 size={16}/>} {uiStrings[language].deleteAll}</button>
+              </div>
+              {bulkBusy && <p role="status">{bulkProgress}</p>}
+            </section>
           </section>
         )}
       </main>
@@ -1596,7 +1538,7 @@ export default function App() {
                           }
                         >
                           {changeBusy
-                            ? <LoaderCircle className="spin" size={15}/>
+                            ? <span className="maestroActivityDots" aria-hidden="true"><i/><i/><i/></span>
                             : <CheckCircle2 size={15}/>}
                           {tch(language, selectedIsDelete ? "approveDelete" : "approve")}
                         </button>
@@ -1612,7 +1554,7 @@ export default function App() {
                         }
                       >
                         {changeBusy
-                          ? <LoaderCircle className="spin" size={15}/>
+                          ? <span className="maestroActivityDots" aria-hidden="true"><i/><i/><i/></span>
                           : <ShieldCheck size={15}/>}
                         {tch(language, selectedIsDelete ? "applyDelete" : "apply")}
                       </button>

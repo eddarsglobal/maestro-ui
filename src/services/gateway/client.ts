@@ -89,6 +89,31 @@ export async function listGatewayModels(
   return readJson<ModelsResponse>(response);
 }
 
+
+export type LocalModelInstallState = {
+  state: "idle" | "downloading" | "installed" | "failed" | "runtime_unavailable";
+  model: string | null;
+  detail: string;
+  progress: number | null;
+  error: string | null;
+};
+
+export async function getLocalModelInstall(baseUrl: string, sessionToken: string): Promise<LocalModelInstallState> {
+  const response=await fetch(`${normalizeBaseUrl(baseUrl)}/models/install`, {
+    headers: { Accept: "application/json", "X-Maestro-Session": sessionToken }, cache: "no-store",
+  });
+  return readJson<LocalModelInstallState>(response);
+}
+
+export async function requestLocalModelInstall(baseUrl: string, sessionToken: string, model: string): Promise<LocalModelInstallState> {
+  const response=await fetch(`${normalizeBaseUrl(baseUrl)}/models/install`, {
+    method: "POST",
+    headers: { Accept: "application/json", "Content-Type": "application/json", "X-Maestro-Session": sessionToken },
+    body: JSON.stringify({ consent: true, provider: "ollama", model }),
+  });
+  return readJson<LocalModelInstallState>(response);
+}
+
 export async function runGatewayMission(
   baseUrl: string,
   sessionToken: string,
@@ -146,7 +171,7 @@ export async function runGatewayMission(
       throw new Error(
         "MAESTRO : aucune réponse après 330 secondes. " +
         "La mission a dépassé son délai d'attente local. " +
-        "Vérifiez Ollama et choisissez un modèle moins coûteux dans SETTINGS.",
+        "Vérifiez que le service local fonctionne, puis réessayez.",
       );
     }
     throw error;
