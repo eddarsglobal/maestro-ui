@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, ChevronRight, Languages, PlugZap, ShieldCheck } from "lucide-react";
+import { Languages, PlugZap, ShieldCheck } from "lucide-react";
 import { checkGateway, listGatewayProviders } from "../../services/gateway/client";
 import {
   RUNTIME_STORAGE_KEY,
@@ -14,6 +14,19 @@ import {
   type UiLanguage,
   t,
 } from "../../i18n";
+
+const MODEL_SETTINGS_COPY: Record<UiLanguage, {
+  engine: string; model: string; missing: string; auto: string;
+}> = {
+  en: {"engine":"Inference engine","model":"Default model","missing":"Saved model unavailable. Choose an available model.","auto":"AUTO may select any authorized local runtime. Manual choice pins the exact engine and model."},
+  fr: {"engine":"Moteur LLM","model":"Modèle par défaut","missing":"Le modèle enregistré est indisponible. Choisissez un modèle disponible.","auto":"AUTO peut choisir parmi tous les moteurs locaux autorisés. Le choix manuel fixe le moteur et le modèle."},
+  de: {"engine":"LLM-Laufzeit","model":"Standardmodell","missing":"Gespeichertes Modell nicht verfügbar. Bitte ein verfügbares Modell wählen.","auto":"AUTO kann alle autorisierten lokalen Laufzeiten nutzen. Die manuelle Auswahl legt Laufzeit und Modell fest."},
+  ar: {"engine":"محرك الذكاء الاصطناعي","model":"النموذج الافتراضي","missing":"النموذج المحفوظ غير متاح. اختر نموذجًا متاحًا.","auto":"قد يختار الوضع التلقائي من جميع المحركات المحلية المصرح بها. يثبت الاختيار اليدوي المحرك والنموذج."},
+  pt: {"engine":"Motor LLM","model":"Modelo predefinido","missing":"O modelo guardado está indisponível. Escolha um modelo disponível.","auto":"AUTO pode escolher entre todos os motores locais autorizados. A seleção manual fixa o motor e o modelo."},
+  es: {"engine":"Motor LLM","model":"Modelo predeterminado","missing":"El modelo guardado no está disponible. Elija otro modelo.","auto":"AUTO puede elegir entre todos los motores locales autorizados. La selección manual fija el motor y el modelo."},
+  hr: {"engine":"LLM pogon","model":"Zadani model","missing":"Spremljeni model nije dostupan. Odaberite dostupan model.","auto":"AUTO može birati među svim odobrenim lokalnim pogonima. Ručni odabir određuje točan pogon i model."},
+  it: {"engine":"Motore LLM","model":"Modello predefinito","missing":"Il modello salvato non è disponibile. Scegli un modello disponibile.","auto":"AUTO può scegliere fra tutti i motori locali autorizzati. La scelta manuale fissa motore e modello."},
+};
 
 type Props = {
   language: UiLanguage;
@@ -80,6 +93,11 @@ export default function LocalRuntimePanel({
   };
   const labels = runtimeStrings[language];
   const selectedProvider = providers.find((item) => item.id === settings.provider);
+  const modelCopy = MODEL_SETTINGS_COPY[language];
+  const availableModels = selectedProvider?.selection_enabled ? selectedProvider.models : [];
+  const savedModelAvailable = settings.model === "AUTO" || availableModels.some(
+    (name) => `${settings.provider}::${name}` === settings.model,
+  );
 
   const testConnection = async () => {
     setStatus("checking");
@@ -133,11 +151,12 @@ export default function LocalRuntimePanel({
   const selectProvider = (provider: LocalProvider) => {
     const selected = providers.find((item) => item.id === provider);
     if (!selected?.selection_enabled) return;
-    setSettings({
-      ...settings,
+    setSettings((current) => ({
+      ...current,
       provider,
       providerUrl: selected.url,
-    });
+      model: "AUTO",
+    }));
   };
 
   return (
@@ -218,34 +237,52 @@ export default function LocalRuntimePanel({
           </div>
         </div>
 
-        <div className="providerGrid">
-          {providers.map((provider) => (
-            <button
-              key={provider.id}
-              type="button"
-              disabled={!provider.selection_enabled}
-              title={provider.reason || undefined}
-              className={
-                "providerCard " +
-                (settings.provider === provider.id ? "selected" : "")
-              }
-              onClick={() => selectProvider(provider.id)}
-            >
-              <span className="providerTop">
-                <b>{provider.name}</b>
-                {settings.provider === provider.id && provider.selection_enabled ? (
-                  <Check size={15} />
-                ) : (
-                  <ChevronRight size={15} />
-                )}
-              </span>
-              <small>{provider.status !== "online" ? labels.unavailable :
-                provider.selection_enabled ? labels.ready : labels.discovered}</small>
-              <small>{provider.models.length
-                ? `${provider.models.length} ${labels.modelCount}: ${provider.models.slice(0, 3).join(", ")}${provider.models.length > 3 ? "…" : ""}`
-                : labels.noModels}</small>
-            </button>
-          ))}
+        <label className="runtimeField">
+          <span>{modelCopy.engine}</span>
+          <select
+            className="settingsSelect"
+            value={settings.provider}
+            onChange={(event) => selectProvider(event.target.value)}
+          >
+            {!selectedProvider && (
+              <option value={settings.provider} disabled>
+                {settings.provider} — {labels.unavailable}
+              </option>
+            )}
+            {providers.map((provider) => (
+              <option key={provider.id} value={provider.id} disabled={!provider.selection_enabled}>
+                {provider.name} — {provider.selection_enabled ? labels.ready : labels.unavailable}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="runtimeField">
+          <span>{modelCopy.model}</span>
+          <select
+            className="settingsSelect"
+            value={settings.model}
+            disabled={!selectedProvider?.selection_enabled}
+            onChange={(event) => setSettings((current) => ({
+              ...current,
+              model: event.target.value,
+            }))}
+          >
+            <option value="AUTO">{t(language, "autoModel")}</option>
+            {settings.model !== "AUTO" && !savedModelAvailable && (
+              <option value={settings.model} disabled>{modelCopy.missing}</option>
+            )}
+            {availableModels.map((name) => (
+              <option key={name} value={`${settings.provider}::${name}`}>{name}</option>
+            ))}
+          </select>
+        </label>
+        {!savedModelAvailable && (
+          <div className="gatewayResult offline" role="status">{modelCopy.missing}</div>
+        )}
+        <div className="localBoundary">
+          <ShieldCheck size={15} />
+          <span>{modelCopy.auto}</span>
         </div>
         {inventoryError && (
           <div className="gatewayResult offline">{labels.refreshing}</div>

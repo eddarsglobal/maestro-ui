@@ -62,6 +62,7 @@ export function applyDocumentLanguage(language: UiLanguage): void {
 }
 
 const en: Record<string, string> = {
+  modelUnavailable: "The selected local model is unavailable. Choose another model in Settings.",
   stopMission: "Stop current mission",
   sovereignControlPlane: "SOVEREIGN CONTROL PLANE",
   newChat: "New chat",
@@ -153,6 +154,7 @@ const en: Record<string, string> = {
 const fr: Record<string, string> = {
   stopMission: "Arrêter la mission",
   ...en,
+  modelUnavailable: "Le modèle local sélectionné est indisponible. Choisissez un autre modèle dans Paramètres.",
   sovereignControlPlane: "PLAN DE CONTRÔLE SOUVERAIN",
   newChat: "Nouvelle conversation",
   search: "Rechercher",
@@ -236,6 +238,7 @@ const fr: Record<string, string> = {
 const de: Record<string, string> = {
   stopMission: "Aktuelle Mission stoppen",
   ...en,
+  modelUnavailable: "Das ausgewählte lokale Modell ist nicht verfügbar. Wählen Sie ein anderes Modell in den Einstellungen.",
   newChat: "Neuer Chat",
   search: "Suchen",
   recents: "ZULETZT",
@@ -283,6 +286,7 @@ const de: Record<string, string> = {
 const ar: Record<string, string> = {
   stopMission: "إيقاف المهمة الحالية",
   ...en,
+  modelUnavailable: "النموذج المحلي المحدد غير متاح. اختر نموذجًا آخر في الإعدادات.",
   newChat: "محادثة جديدة",
   search: "بحث",
   recents: "الأخيرة",
@@ -335,6 +339,7 @@ const ar: Record<string, string> = {
 const pt: Record<string, string> = {
   stopMission: "Parar missão atual",
   ...en,
+  modelUnavailable: "O modelo local selecionado está indisponível. Escolha outro modelo nas Definições.",
   newChat: "Nova conversa",
   search: "Pesquisar",
   recents: "RECENTES",
@@ -381,6 +386,7 @@ const pt: Record<string, string> = {
 const es: Record<string, string> = {
   stopMission: "Detener misión actual",
   ...en,
+  modelUnavailable: "El modelo local seleccionado no está disponible. Elija otro modelo en Ajustes.",
   newChat: "Nuevo chat",
   search: "Buscar",
   recents: "RECIENTES",
@@ -427,6 +433,7 @@ const es: Record<string, string> = {
 const hr: Record<string, string> = {
   stopMission: "Zaustavi trenutni zadatak",
   ...en,
+  modelUnavailable: "Odabrani lokalni model nije dostupan. Odaberite drugi model u Postavkama.",
   sovereignControlPlane: "SUVERENA UPRAVLJAČKA RAVNINA",
   newChat: "Novi razgovor",
   search: "Pretraži",
@@ -484,6 +491,7 @@ const hr: Record<string, string> = {
 const it: Record<string, string> = {
   stopMission: "Interrompi la missione",
   ...en,
+  modelUnavailable: "Il modello locale selezionato non è disponibile. Scegli un altro modello nelle Impostazioni.",
   newChat: "Nuova chat",
   search: "Cerca",
   recents: "RECENTI",
