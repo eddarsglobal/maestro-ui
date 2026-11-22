@@ -21,6 +21,8 @@ export type LocalRuntimeSettings = {
   gatewayUrl: string;
   provider: LocalProvider;
   providerUrl: string;
+  // Explicit provider::model, or AUTO (local browser preference).
+  model: string;
 };
 
 export type GatewaySession = {
@@ -158,6 +160,7 @@ export const DEFAULT_LOCAL_RUNTIME_SETTINGS: LocalRuntimeSettings = {
   gatewayUrl: "http://127.0.0.1:8787",
   provider: "ollama",
   providerUrl: "http://127.0.0.1:11434",
+  model: "AUTO",
 };
 
 export function loadLocalRuntimeSettings(): LocalRuntimeSettings {
@@ -165,9 +168,22 @@ export function loadLocalRuntimeSettings(): LocalRuntimeSettings {
     const raw = localStorage.getItem(RUNTIME_STORAGE_KEY);
     if (!raw) return DEFAULT_LOCAL_RUNTIME_SETTINGS;
 
+    const stored = JSON.parse(raw) as Partial<LocalRuntimeSettings>;
+    if (!stored || typeof stored !== "object" || Array.isArray(stored)) {
+      return DEFAULT_LOCAL_RUNTIME_SETTINGS;
+    }
+    const provider = typeof stored.provider === "string" && stored.provider
+      ? stored.provider : DEFAULT_LOCAL_RUNTIME_SETTINGS.provider;
+    const model = typeof stored.model === "string" &&
+      (stored.model === "AUTO" || stored.model.startsWith(`${provider}::`))
+      ? stored.model : "AUTO";
     return {
-      ...DEFAULT_LOCAL_RUNTIME_SETTINGS,
-      ...JSON.parse(raw),
+      gatewayUrl: typeof stored.gatewayUrl === "string"
+        ? stored.gatewayUrl : DEFAULT_LOCAL_RUNTIME_SETTINGS.gatewayUrl,
+      provider,
+      providerUrl: typeof stored.providerUrl === "string"
+        ? stored.providerUrl : DEFAULT_LOCAL_RUNTIME_SETTINGS.providerUrl,
+      model,
     };
   } catch {
     return DEFAULT_LOCAL_RUNTIME_SETTINGS;
