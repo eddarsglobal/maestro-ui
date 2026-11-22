@@ -156,13 +156,14 @@ export default function App() {
   const [gatewayHealth, setGatewayHealth] =
     useState<GatewayHealth | null>(null);
   const [models, setModels] = useState<string[]>([]);
-  const [selectedModel, setSelectedModel] = useState("AUTO");
+  const [selectedModel, setSelectedModel] = useState(runtimeSettings.model);
   const acceptModelInventory = useCallback((nextModels: string[]) => {
+    // An unavailable explicit model must not silently become AUTO.
     setModels(nextModels);
-    setSelectedModel((current) =>
-      current !== "AUTO" && !nextModels.includes(current) ? "AUTO" : current,
-    );
   }, []);
+  const providerModels = models.filter(
+    (id) => id.startsWith(`${runtimeSettings.provider}::`),
+  );
   const [running, setRunning] = useState(false);
   const cancelMissionRef = useRef<AbortController | null>(null);
 
@@ -212,6 +213,11 @@ export default function App() {
     return () =>
       window.removeEventListener("maestro-runtime-settings", onSettings);
   }, []);
+
+  // Settings persists the local default; the composer may override per conversation.
+  useEffect(() => {
+    setSelectedModel(runtimeSettings.model);
+  }, [runtimeSettings.model, runtimeSettings.gatewayUrl]);
 
   const setLanguage = (next: UiLanguage) => {
     localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, next);
@@ -592,6 +598,7 @@ export default function App() {
   }, [searchOpen, searchQuery, runtimeSettings.gatewayUrl, withFreshSession]);
 
   const startNewChat = () => {
+    setSelectedModel(runtimeSettings.model);
     setActiveConversationId(null);
     setMessages([]);
     setPrompt("");
@@ -602,6 +609,13 @@ export default function App() {
   const send = async () => {
     const text = prompt.trim();
     if (!text || running) return;
+    if (selectedModel !== "AUTO" && !models.includes(selectedModel)) {
+      setMessages((current) => [
+        ...current,
+        { id: crypto.randomUUID(), role: "error", text: t(language, "modelUnavailable") },
+      ]);
+      return;
+    }
 
     setMessages((current) => [
       ...current,
@@ -1235,14 +1249,19 @@ export default function App() {
                                                           disabled={running || gatewayStatus!=="online"}
                                                         >
                                                           <option value="AUTO">{t(language,"autoModel")}</option>
-                                                          {models.map((model) => (
-                                                            <option value={model} key={model}>{model}</option>
+                                                          {selectedModel !== "AUTO" && !providerModels.includes(selectedModel) && (
+                                                            <option value={selectedModel} disabled>
+                                                              {t(language,"modelUnavailable")}
+                                                            </option>
+                                                          )}
+                                                          {providerModels.map((model) => (
+                                                            <option value={model} key={model}>{shortResource(model)}</option>
                                                           ))}
                                                         </select>
 
                                                         <span>
                                                           {gatewayStatus==="online"
-                                                            ? t(language,"localModels",{count:models.length})
+                                                            ? t(language,"localModels",{count:providerModels.length})
                                                             : t(language,"gatewayNotConnected")}
                                                         </span>
                                                       </div>
