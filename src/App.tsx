@@ -206,6 +206,7 @@ export default function App() {
       const custom = event as CustomEvent<LocalRuntimeSettings>;
       if (custom.detail) {
         setRuntimeSettings(custom.detail);
+        setSelectedModel(custom.detail.model);
         sessionTokenRef.current = null;
       }
     };
@@ -214,10 +215,7 @@ export default function App() {
       window.removeEventListener("maestro-runtime-settings", onSettings);
   }, []);
 
-  // Settings persists the local default; the composer may override per conversation.
-  useEffect(() => {
-    setSelectedModel(runtimeSettings.model);
-  }, [runtimeSettings.model, runtimeSettings.gatewayUrl]);
+  // Settings default is applied by its change event, not a render effect.
 
   const setLanguage = (next: UiLanguage) => {
     localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, next);
@@ -321,7 +319,7 @@ export default function App() {
       setChangeProposals([]);
       return [];
     }
-  }, [activeWorkspaceId, gatewayStatus, runtimeSettings.gatewayUrl, withFreshSession]);
+  }, [activeWorkspaceId, gatewayStatus, runtimeSettings.gatewayUrl, withFreshSession, setSelectedChangeId]);
 
   const openChanges = async () => {
     if (!activeWorkspaceId || gatewayStatus !== "online") return;
